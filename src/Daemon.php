@@ -18,6 +18,9 @@ abstract class Daemon
         $this->pidFile = null;
         $this->runLoop = true;
         $this->quietTime = $quietTime;
+        $this->taskQueue = [];
+        $this->children = [];
+        $this->syslog = $syslog;
 
         if ($syslog) {
             openlog($name, LOG_PID | LOG_PERROR, LOG_LOCAL0);
@@ -43,6 +46,7 @@ abstract class Daemon
                 fwrite($fp, $this->pid);
                 fclose($fp);
             }
+            if ($this->syslog) closelog();
             exit(0);
         }
         $sid = posix_setsid();
@@ -61,42 +65,48 @@ abstract class Daemon
 
         $this->loop();
 
-        if ($this->syslog) {
-            closelog();
-        }
+        if ($this->syslog) closelog();
     }
 
     protected function loop() {
         while ($this->runLoop) {
-            while (count($this->children) <= $maxChildren) {
+            if (count($this->children) < $this->maxChildren) // don't run and get more tasks if we are at max already
                 $this->run();
+
+            if ($this->taskQueue) {
                 reset($this->taskQueue);
-                while (count($this->children) <= $maxChildren && list(,$task) = each($this->taskQueue)) {
-                    $this->executeTask($task);
+                while (count($this->children) <= $this->maxChildren && list($taskidx) = each($this->taskQueue)) {
+                    $this->executeTask($taskidx);
                 }
             }
 
             // reap dead children
             foreach ($this->children as $pid => $startTime) {
                 if (($r = pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
-                    $this->log(LOG_INFO, "Child with PID $pid exited, runtime was " .((microtime(true)-$startTime)/1000) . "ms");
+                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$startTime)/1000) . "ms");
                     unset($this->children[$pid]);
                 } else if ($r < 0) {
-                    $this->log(LOG_ERR, "pnctl_waitpid() returned error value for PID $pid");
+                    $this->log(LOG_ERR, "pcntl_waitpid() returned error value for PID $pid");
                 }
             }
-
+            $this->taskQueue = array_values($this->taskQueue); // reindex
             usleep($this->quietTime);
         }
     }
 
-    protected function executeTask(\Closure $task) {
-        if ($pid = pcntl_fork()) { // parent
+    protected function executeTask($idx) {
+        $task = $this->taskQueue[$idx];
+
+        if (($pid = pcntl_fork()) > 0) { // parent
+            unset($this->taskQueue[$idx]);
+
             $this->children[$pid] = microtime(true);
             $this->log(LOG_NOTICE, "Spawned child with PID $pid");
-        } else if (!$pid) { // child
+        } else if ($pid == 0) { // child
             $retval = $task();
             exit($retval);
+        } else {
+            $this->log(LOG_ERR, "Failed to fork child!");
         }
     }
 
