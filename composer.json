@@ -6,7 +6,11 @@
             "name": "Sean Kennedy",
             "email": "sean@kndy.net"
         }
-    "keywords": ["fork","daemon"],
+    ],
+    "keywords": [
+        "fork",
+        "daemon"
+    ],
     "require": {
         "php": ">=5.4.0"
     },
