@@ -11,8 +11,9 @@ abstract class Daemon
     protected $syslog;
     protected $runLoop;
     protected $quietTime;
+    protected $daemonize;
 
-    public function __construct($name, $maxChildren = 100, $quietTime = 1000, $syslog = true) {
+    public function __construct($name, $maxChildren = 100, $quietTime = 1000000, $syslog = true) {
         $this->name = $name;
         $this->maxChildren = $maxChildren;
         $this->pidFile = null;
@@ -21,10 +22,15 @@ abstract class Daemon
         $this->taskQueue = [];
         $this->children = [];
         $this->syslog = $syslog;
+        $this->daemonize = true;
 
         if ($syslog) {
             openlog($name, LOG_PID | LOG_PERROR, LOG_LOCAL0);
         }
+    }
+
+    public function setDaemonize($d) {
+        $this->daemonize = $d;
     }
 
     public function setPidFile($file) {
@@ -32,29 +38,31 @@ abstract class Daemon
     }
 
     public function start() {
-        $this->pid = pcntl_fork();
-        if ($this->pid == -1) {
-            $this->log(LOG_ERR, "Failed to fork to a daemon");
-            exit(1);
-        } else if ($this->pid) {
-            $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
-            if ($this->pidFile) {
-                if (!($fp = @fopen($this->pidFile, 'w+'))) {
-                    $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
-                    exit(1);
+        if ($this->daemonize) {
+            $this->pid = pcntl_fork();
+            if ($this->pid == -1) {
+                $this->log(LOG_ERR, "Failed to fork to a daemon");
+                exit(1);
+            } else if ($this->pid) {
+                $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
+                if ($this->pidFile) {
+                    if (!($fp = @fopen($this->pidFile, 'w+'))) {
+                        $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
+                        exit(1);
+                    }
+                    fwrite($fp, $this->pid);
+                    fclose($fp);
                 }
-                fwrite($fp, $this->pid);
-                fclose($fp);
+                if ($this->syslog) closelog();
+                exit(0);
             }
-            if ($this->syslog) closelog();
-            exit(0);
-        }
-        $sid = posix_setsid();
+            $sid = posix_setsid();
 
-        fclose(STDIN);
-        fclose(STDOUT);
-        fclose(STDERR);
-        chdir('/');
+            fclose(STDIN);
+            fclose(STDOUT);
+            fclose(STDERR);
+            chdir('/');
+        }
 
         /* example of signal handling
         pcntl_signal(SIGTERM, array($this, "sigHandler"));
@@ -89,7 +97,9 @@ abstract class Daemon
                     $this->log(LOG_ERR, "pcntl_waitpid() returned error value for PID $pid");
                 }
             }
+
             $this->taskQueue = array_values($this->taskQueue); // reindex
+
             usleep($this->quietTime);
         }
     }
