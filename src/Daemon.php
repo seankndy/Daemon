@@ -25,7 +25,7 @@ abstract class Daemon
         $this->daemonize = true;
 
         if ($syslog) {
-            openlog($name, LOG_PID | LOG_PERROR, LOG_LOCAL0);
+            openlog($name, LOG_PID, LOG_LOCAL0);
         }
     }
 
