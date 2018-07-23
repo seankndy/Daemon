@@ -11,6 +11,7 @@ abstract class Daemon
     protected $syslog;
     protected $runLoop;
     protected $quietTime;
+    protected $taskQueue;
     protected $daemonize;
 
     public function __construct($name, $maxChildren = 100, $quietTime = 1000000, $syslog = true) {
@@ -19,7 +20,7 @@ abstract class Daemon
         $this->pidFile = null;
         $this->runLoop = true;
         $this->quietTime = $quietTime;
-        $this->taskQueue = [];
+        $this->taskQueue = new \SplQueue();
         $this->children = [];
         $this->syslog = $syslog;
         $this->daemonize = true;
@@ -85,45 +86,36 @@ abstract class Daemon
             if (count($this->children) < $this->maxChildren) // don't run and get more tasks if we are at max already
                 $this->run();
 
-            if ($this->taskQueue) {
-                reset($this->taskQueue);
-                while (count($this->children) <= $this->maxChildren && list($taskidx) = each($this->taskQueue)) {
-                    $this->executeTask($taskidx);
+            if ($this->taskQueue->count() > 0) {
+                while (count($this->children) <= $this->maxChildren && $this->taskQueue->count() > 0) {
+                    $this->executeTask($this->taskQueue->dequeue());
                 }
             }
 
             // reap dead children
-            foreach ($this->children as $pid => $cdata) {
+            foreach ($this->children as $pid => $task) {
                 if (($r = \pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
-                    $this->onChildExit($pid, $status, $cdata['cargo']);
+                    $task->setEndTime();
+                    $this->onChildExit($pid, $status, $task);
 
-                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$cdata['start_time'])/1000) . "ms");
+                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", $task->runtime()) . "ms");
                     unset($this->children[$pid]);
                 } else if ($r < 0) {
                     $this->log(LOG_ERR, "pcntl_waitpid() returned error value for PID $pid");
                 }
             }
 
-            $this->taskQueue = array_values($this->taskQueue); // reindex
-
             usleep($this->quietTime);
         }
     }
 
-    protected function executeTask($idx) {
-        $task = $this->taskQueue[$idx]['func'];
-        $cargo = $this->taskQueue[$idx]['cargo'];
-
+    protected function executeTask(Task $task) {
+        $task->setStartTime();
         if (($pid = \pcntl_fork()) > 0) { // parent
-            unset($this->taskQueue[$idx]);
-
-            $this->children[$pid] = [
-                'start_time' => microtime(true),
-                'cargo' => $cargo
-            ];
+            $this->children[$pid] = $task;
             $this->log(LOG_NOTICE, "Spawned child with PID $pid");
         } else if ($pid == 0) { // child
-            $retval = $task($cargo);
+            $retval = $task->run();
             exit($retval);
         } else {
             $this->log(LOG_ERR, "Failed to fork child!");
@@ -140,12 +132,8 @@ abstract class Daemon
      *
      * @return void
      */
-    protected function queueTask(\Closure $task, $cargo = null) {
-        // push task onto stack
-        $this->taskQueue[] = [
-            'func' => $task,
-            'cargo' => $cargo
-        ];
+    protected function queueTask(Task $task) {
+        $this->taskQueue->enqueue($task);
     }
 
     protected function log($code, $msg) {
@@ -172,9 +160,9 @@ abstract class Daemon
      *
      * @param int $pid PID of child
      * @param int $status Exist status of child
-     * @param mixed $cargo Child's cargo that was given during queueing
+     * @param Task $task Task
      *
      * @return void
      */
-    abstract public function onChildExit($pid, $status, $cargo);
+    abstract public function onChildExit($pid, $status, Task $task);
 }
