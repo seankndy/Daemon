@@ -25,7 +25,7 @@ abstract class Daemon
         $this->daemonize = true;
 
         if ($syslog) {
-            openlog($name, LOG_PID, LOG_LOCAL0);
+            \openlog($name, LOG_PID, LOG_LOCAL0);
         }
     }
 
@@ -39,45 +39,45 @@ abstract class Daemon
 
     public function start() {
         if ($this->daemonize) {
-            $this->pid = pcntl_fork();
+            $this->pid = \pcntl_fork();
             if ($this->pid == -1) {
                 $this->log(LOG_ERR, "Failed to fork to a daemon");
                 exit(1);
             } else if ($this->pid) {
                 $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
                 if ($this->pidFile) {
-                    if (!($fp = @fopen($this->pidFile, 'w+'))) {
+                    if (!($fp = @\fopen($this->pidFile, 'w+'))) {
                         $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
                         exit(1);
                     }
-                    fwrite($fp, $this->pid);
-                    fclose($fp);
+                    \fwrite($fp, $this->pid);
+                    \fclose($fp);
                 }
-                if ($this->syslog) closelog();
+                if ($this->syslog) \closelog();
                 exit(0);
             }
-            $sid = posix_setsid();
+            $sid = \posix_setsid();
 
-            fclose(STDIN);
-            fclose(STDOUT);
-            fclose(STDERR);
-            chdir('/');
+            \fclose(STDIN);
+            \fclose(STDOUT);
+            \fclose(STDERR);
+            \chdir('/');
 
-            $stdIn = fopen('/dev/null', 'r');
-            $stdOut = fopen('/dev/null', 'w');
-            $stdErr = fopen('php://stdout', 'w');
+            $stdIn = \fopen('/dev/null', 'r');
+            $stdOut = \fopen('/dev/null', 'w');
+            $stdErr = \fopen('php://stdout', 'w');
         }
 
         /* example of signal handling
-        pcntl_signal(SIGTERM, array($this, "sigHandler"));
-        pcntl_signal(SIGHUP,  array($this, "sigHandler"));
-        pcntl_signal(SIGINT, array($this, "sigHandler"));
-        pcntl_signal(SIGUSR1, array($this, "sigHandler"));
+        \pcntl_signal(SIGTERM, array($this, "sigHandler"));
+        \pcntl_signal(SIGHUP,  array($this, "sigHandler"));
+        \pcntl_signal(SIGINT, array($this, "sigHandler"));
+        \pcntl_signal(SIGUSR1, array($this, "sigHandler"));
         */
 
         $this->loop();
 
-        if ($this->syslog) closelog();
+        if ($this->syslog) \closelog();
     }
 
     protected function loop() {
@@ -94,7 +94,7 @@ abstract class Daemon
 
             // reap dead children
             foreach ($this->children as $pid => $startTime) {
-                if (($r = pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
+                if (($r = \pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
                     $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$startTime)/1000) . "ms");
                     unset($this->children[$pid]);
                 } else if ($r < 0) {
@@ -111,7 +111,7 @@ abstract class Daemon
     protected function executeTask($idx) {
         $task = $this->taskQueue[$idx];
 
-        if (($pid = pcntl_fork()) > 0) { // parent
+        if (($pid = \pcntl_fork()) > 0) { // parent
             unset($this->taskQueue[$idx]);
 
             $this->children[$pid] = microtime(true);
@@ -131,7 +131,7 @@ abstract class Daemon
 
     protected function log($code, $msg) {
         if ($this->syslog) {
-            syslog($code, $msg);
+            \syslog($code, $msg);
         }
     }
 
