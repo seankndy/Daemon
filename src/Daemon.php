@@ -95,6 +95,8 @@ abstract class Daemon
             // reap dead children
             foreach ($this->children as $pid => $startTime) {
                 if (($r = \pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
+                    $this->onChildExit($pid, $status);
+
                     $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$startTime)/1000) . "ms");
                     unset($this->children[$pid]);
                 } else if ($r < 0) {
@@ -124,6 +126,14 @@ abstract class Daemon
         }
     }
 
+    /**
+     * Queue a task to run later.  The queued function should return
+     * the child process exit value.
+     *
+     * @param callable $task Function to run
+     *
+     * @return void
+     */
     protected function queueTask(\Closure $task) {
         // push task onto stack
         $this->taskQueue[] = $task;
@@ -139,10 +149,22 @@ abstract class Daemon
         ; // implement your own signal handling
     }
 
-    //
-    // implement this function and call queueTask() to schedule tasks to be forked/ran.
-    // this function should not loop endlessly/block, but should fire off queueTask()
-    // when something needs forked/ran
-    //
+    /**
+     * Implement this function and call queueTask() to schedule tasks to be forked/ran.
+     * This function should not loop endlessly/block, but should fire off queueTask()
+     * when something needs executed.
+     *
+     * @return void
+     */
     abstract public function run();
+
+    /**
+     * Called when dead child is reaped.
+     *
+     * @param int $pid PID of child
+     * @param int $status Exist status of child
+     *
+     * @return void
+     */
+    abstract public function onChildExit($pid, $status);
 }
