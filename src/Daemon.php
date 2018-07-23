@@ -93,11 +93,11 @@ abstract class Daemon
             }
 
             // reap dead children
-            foreach ($this->children as $pid => $startTime) {
+            foreach ($this->children as $pid => $cdata) {
                 if (($r = \pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
-                    $this->onChildExit($pid, $status);
+                    $this->onChildExit($pid, $status, $cdata['cargo']);
 
-                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$startTime)/1000) . "ms");
+                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", (microtime(true)-$cdata['start_time'])/1000) . "ms");
                     unset($this->children[$pid]);
                 } else if ($r < 0) {
                     $this->log(LOG_ERR, "pcntl_waitpid() returned error value for PID $pid");
@@ -111,15 +111,19 @@ abstract class Daemon
     }
 
     protected function executeTask($idx) {
-        $task = $this->taskQueue[$idx];
+        $task = $this->taskQueue[$idx]['func'];
+        $cargo = $this->taskQueue[$idx]['cargo'];
 
         if (($pid = \pcntl_fork()) > 0) { // parent
             unset($this->taskQueue[$idx]);
 
-            $this->children[$pid] = microtime(true);
+            $this->children[$pid] = [
+                'start_time' => microtime(true),
+                'cargo' => $cargo
+            ];
             $this->log(LOG_NOTICE, "Spawned child with PID $pid");
         } else if ($pid == 0) { // child
-            $retval = $task();
+            $retval = $task($cargo);
             exit($retval);
         } else {
             $this->log(LOG_ERR, "Failed to fork child!");
@@ -131,12 +135,17 @@ abstract class Daemon
      * the child process exit value.
      *
      * @param callable $task Function to run
+     * @param mixed $cargo Any data to pass to task at runtime, also returned
+     *       to onChildExit()
      *
      * @return void
      */
-    protected function queueTask(\Closure $task) {
+    protected function queueTask(\Closure $task, $cargo = null) {
         // push task onto stack
-        $this->taskQueue[] = $task;
+        $this->taskQueue[] = [
+            'func' => $task,
+            'cargo' => $cargo
+        ];
     }
 
     protected function log($code, $msg) {
@@ -163,8 +172,9 @@ abstract class Daemon
      *
      * @param int $pid PID of child
      * @param int $status Exist status of child
+     * @param mixed $cargo Child's cargo that was given during queueing
      *
      * @return void
      */
-    abstract public function onChildExit($pid, $status);
+    abstract public function onChildExit($pid, $status, $cargo);
 }
