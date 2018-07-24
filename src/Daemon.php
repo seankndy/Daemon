@@ -30,14 +30,35 @@ abstract class Daemon
         }
     }
 
+    /**
+     * Set daemonize flag
+     *
+     * @param boolean $d
+     *
+     * @return $this
+     */
     public function setDaemonize($d) {
         $this->daemonize = $d;
+        return $this;
     }
 
+    /**
+     * Set PID file
+     *
+     * @param string $file File name
+     *
+     * @return $this
+     */
     public function setPidFile($file) {
         $this->pidFile = $file;
+        return $this;
     }
 
+    /**
+     * Start daemon
+     *
+     * @return void
+     */
     public function start() {
         if ($this->daemonize) {
             $this->pid = \pcntl_fork();
@@ -81,6 +102,11 @@ abstract class Daemon
         if ($this->syslog) \closelog();
     }
 
+    /**
+     * Main work loop
+     *
+     * @return void
+     */
     protected function loop() {
         while ($this->runLoop) {
             if (count($this->children) < $this->maxChildren) // don't run and get more tasks if we are at max already
@@ -109,8 +135,22 @@ abstract class Daemon
         }
     }
 
+    /**
+     * Setup task, fork child
+     *
+     * @return void
+     */
     protected function executeTask(Task $task) {
         $task->setStartTime();
+        // setup IPC
+        if ($ipc = $task->getIpc()) {
+            try {
+                $ipc->create();
+            } catch (\Exception $e) {
+                $this->log(LOG_ERR, "Failed to create IPC sockets: " . $e->getMessage());
+            }
+        }
+
         if (($pid = \pcntl_fork()) > 0) { // parent
             $this->children[$pid] = $task;
             $this->log(LOG_NOTICE, "Spawned child with PID $pid");
@@ -136,6 +176,11 @@ abstract class Daemon
         $this->taskQueue->enqueue($task);
     }
 
+    /**
+     * Log message to syslog
+     *
+     * @return void
+     */
     protected function log($code, $msg) {
         if ($this->syslog) {
             \syslog($code, $msg);
