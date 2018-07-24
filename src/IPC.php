@@ -21,8 +21,8 @@ class IPC {
     }
     
     public function read($who) {
-        $data = '';
-        while (($buf = @\socket_read($this->sockets[$who], 4096)) !== false && $buf != '') {
+        $data = $buf = '';
+        while (@\socket_rcv($this->sockets[$who], $buf, 4096, MSG_WAITALL)) !== false) {
             $data .= $buf;
         }
         return $buf;
