@@ -172,7 +172,7 @@ abstract class Daemon
      *
      * @return void
      */
-    protected function queueTask(Task $task) {
+    public function queueTask(Task $task) {
         $this->taskQueue->enqueue($task);
     }
 
@@ -181,7 +181,7 @@ abstract class Daemon
      *
      * @return void
      */
-    protected function log($code, $msg) {
+    public function log($code, $msg) {
         if ($this->syslog) {
             \syslog($code, $msg);
         }
