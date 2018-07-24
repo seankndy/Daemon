@@ -40,7 +40,8 @@ class Task {
     
     public function getIpc() {
         return $this->ipc;
-    
+    }
+
     public function getContext() {
         return $this->context;
     }
