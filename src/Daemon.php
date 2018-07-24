@@ -115,7 +115,11 @@ abstract class Daemon
             $this->children[$pid] = $task;
             $this->log(LOG_NOTICE, "Spawned child with PID $pid");
         } else if ($pid == 0) { // child
-            $retval = $task->run();
+            try {
+                $retval = $task->run();
+            } catch (\Exception $e) {
+                $this->log(LOG_ERR, "Child with PID " . getmypid() . " had system error occur: " . $e->getMessage());
+            }
             exit($retval);
         } else {
             $this->log(LOG_ERR, "Failed to fork child!");

@@ -8,6 +8,7 @@ class Task {
     
     public function __construct(\Closure $func, $context = null) {
         $this->func = $func;
+        $this->func->bindTo($this);
         $this->context = $context;
     }
 
@@ -39,7 +40,30 @@ class Task {
     
     public function run() {
         $func = $this->func;
-        $retval = $func($this->context);
+        $retval = $func();
         return $retval;
     }
+    
+    public static function putSharedMemory(string $data) {
+        if (($shm = @\shmop_open(getmypid(), 'c', 0644, strlen($data))) === false) {
+            throw new \RuntimeException("shmop_open() failed!");
+        }
+        if (@\shmop_write($shm, $data, 0) != strlen($data)) {
+            throw new \RuntimeException("shmop_write() failed!");
+        }
+    }
+
+    public static function getSharedMemory(int $pid) {
+        if (($shm = @\shmop_open($pid, "a", 0, 0)) === false) {
+            throw new \RuntimeException("shmop_open() failed!");
+        }
+        if (($data = @\shmop_read($shm, 0, \shmop_size($shm))) !== false) {
+            @\shmop_delete($shm);
+            @\shmop_close($shm);
+
+            return $data;
+        } else {
+            throw new \RuntimeException("shmop_read() failed!");
+        }
+    }    
 }
