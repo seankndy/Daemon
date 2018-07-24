@@ -2,13 +2,18 @@
 namespace SeanKndy\Daemon;
 
 class Task {
+    public static $IPC_PARENT = 0;
+    public static $IPC_CLIENT = 1;
+
     protected $func;
     protected $context;
     protected $startTime, $endTime;
+    protected $ipc;
     
-    public function __construct(\Closure $func, $context = null) {
+    public function __construct(\Closure $func, $context = null, IPC $ipc = null) {
         $this->func = $func;
         $this->context = $context;
+        $this->ipc = $ipc;
     }
 
     public function setStartTime($time = null) {
@@ -33,6 +38,9 @@ class Task {
         return sprintf('%.5f', ($this->endTime-$this->startTime)/1000);
     }
     
+    public function getIpc() {
+        return $this->ipc;
+    
     public function getContext() {
         return $this->context;
     }
@@ -43,27 +51,4 @@ class Task {
         $retval = $func();
         return $retval;
     }
-    
-    public static function putSharedMemory(string $data) {
-        if (($shm = @\shmop_open(getmypid(), 'c', 0644, strlen($data))) === false) {
-            throw new \RuntimeException("shmop_open() failed!");
-        }
-        if (@\shmop_write($shm, $data, 0) != strlen($data)) {
-            throw new \RuntimeException("shmop_write() failed!");
-        }
-    }
-
-    public static function getSharedMemory(int $pid) {
-        if (($shm = @\shmop_open($pid, "a", 0, 0)) === false) {
-            throw new \RuntimeException("shmop_open() failed!");
-        }
-        if (($data = @\shmop_read($shm, 0, \shmop_size($shm))) !== false) {
-            @\shmop_delete($shm);
-            @\shmop_close($shm);
-
-            return $data;
-        } else {
-            throw new \RuntimeException("shmop_read() failed!");
-        }
-    }    
 }
