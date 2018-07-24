@@ -39,7 +39,7 @@ class Task {
     
     public function run() {
         $func = $this->func;
-        $func->bindTo($this);
+        $func = $func->bindTo($this);
         $retval = $func();
         return $retval;
     }
