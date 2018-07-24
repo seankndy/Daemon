@@ -22,7 +22,7 @@ class IPC {
     
     public function read($who) {
         $data = $buf = '';
-        while (@\socket_recv($this->sockets[$who], $buf, 4096, MSG_WAITALL) !== false) {
+        while (($len = @\socket_recv($this->sockets[$who], $buf, 4096, MSG_DONTWAIT)) !== false && $len > 0) {
             $data .= $buf;
         }
         return $buf;
