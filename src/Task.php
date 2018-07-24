@@ -8,7 +8,6 @@ class Task {
     
     public function __construct(\Closure $func, $context = null) {
         $this->func = $func;
-        $this->func->bindTo($this);
         $this->context = $context;
     }
 
@@ -40,6 +39,7 @@ class Task {
     
     public function run() {
         $func = $this->func;
+        $func->bindTo($this);
         $retval = $func();
         return $retval;
     }
