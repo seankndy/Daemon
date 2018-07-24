@@ -8,12 +8,15 @@ class IPC {
     protected $sockets = [];
     
     public function __construct() {
-        if (@\socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $this->sockets) === false) {
-            throw new \RuntimeException("socket_create_pair() failed. Reason: " . socket_strerror(socket_last_error()));
-        }
+        ;
     }
     
     public function write($who, $data) {
+        if (!$this->sockets) {
+            if (@\socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $this->sockets) === false) {
+                throw new \RuntimeException("socket_create_pair() failed. Reason: " . socket_strerror(socket_last_error()));
+            }
+        }
         @\socket_close($this->sockets[$who == self::$CHILD ? self::$PARENT : self::$CHILD]);
         if (@\socket_write($this->sockets[$who], $data, strlen($data)) === false) {
             throw new \RuntimeException("socket_write() failed. Reason: ".socket_strerror(socket_last_error($this->sockets[$who])));
