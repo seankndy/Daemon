@@ -1,7 +1,7 @@
 <?php
-namespace SeanKndy\Daemon;
+namespace SeanKndy\Daemon\IPC;
 
-class IPC {
+class Socket extends Messenger {
     const PARENT = 0;
     const CHILD = 1;
 
@@ -16,62 +16,77 @@ class IPC {
      */
     protected $sockets;
 
+
     /**
      * Constructor, always called from main process thread
      *
      * @return $this
      */
     public function __construct() {
+        parent::__construct();
+
         $this->sockets = [];
         $this->ppid = \getmypid();
         return $this;
     }
 
     /**
-     * Open file descriptors (call from main thread)
+     * Messenger Implementation
+     * Init sockets
      *
      * @return void
      */
-    public function create() {
-        if (@\socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $this->sockets) === false) {
-            throw new \RuntimeException("socket_create_pair() failed. Reason: " . socket_strerror(socket_last_error()));
-        }
+    public function init() : void {
+        $factory = new \Socket\Raw\Factory();
+        $this->sockets = $factory->createPair(AF_UNIX, SOCK_STREAM, 0);
     }
 
     /**
+     * Messenger Implementation
      * Write data to appropriate socket
      *
-     * @param string $data Data to write
+     * @param string $message Data to write to socket
      *
-     * @return void
+     * @return boolean
      */
-    public function write($data) {
+    public function send(string $message) : bool {
         if (!$this->sockets) {
             throw new \RuntimeException("Cannot call write() before calling create()!");
         }
+
         // close opposite FD
-        @\socket_close($this->sockets[$this->isChild() ? self::PARENT : self::CHILD]);
+        $this->sockets[$this->isChild() ? self::PARENT : self::CHILD]->close();
+
         $who = $this->isChild() ? self::CHILD : self::PARENT;
-        if (@\socket_write($this->sockets[$who], $data, strlen($data)) === false) {
-            throw new \RuntimeException("socket_write() failed. Reason: ".socket_strerror(socket_last_error($this->sockets[$who])));
-        }
+        return $this->sockets[$who]->write($message) ? true : false;
     }
 
     /**
+     * Messenger Implementation
      * Read data from appropriate socket
      *
      * @return string
      */
-    public function read() {
+    public function receive() : string {
         if (!$this->sockets) {
             throw new \RuntimeException("Cannot call read() before calling create()!");
         }
         $who = $this->isChild() ? self::CHILD : self::PARENT;
-        $data = $buf = '';
-        while (($len = @\socket_recv($this->sockets[$who], $buf, 4096, MSG_DONTWAIT)) !== false && $len > 0) {
+        $data = '';
+        while ($buf = $this->sockets[$who]->recv(4096, MSG_DONTWAIT)) {
             $data .= $buf;
         }
         return $data;
+    }
+
+    /**
+     * Has message pending
+     *
+     * @return boolean
+     */
+    public function hasMessage() : bool {
+        $who = $this->isChild() ? self::CHILD : self::PARENT;
+        return $this->sockets[$who]->selectRead($sec);
     }
 
     /**
@@ -81,7 +96,7 @@ class IPC {
      */
     public function close() {
         $who = $this->isChild() ? self::CHILD : self::PARENT;
-        @\socket_close($this->sockets[$who]);
+        $this->sockets[$who]->close();
     }
 
     /**

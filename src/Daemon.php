@@ -1,7 +1,7 @@
 <?php
 namespace SeanKndy\Daemon;
 
-abstract class Daemon
+abstract class Daemon implements Tasks\Listener
 {
     protected $maxChildren;
     protected $children;
@@ -109,25 +109,30 @@ abstract class Daemon
      */
     protected function loop() {
         while ($this->runLoop) {
+            // execute concrete run() implemenation, which will queue
+            // work needed done.
             if (count($this->children) < $this->maxChildren) // don't run and get more tasks if we are at max already
                 $this->run();
 
+            // look for queued work, execute it
             if ($this->taskQueue->count() > 0) {
                 while (count($this->children) <= $this->maxChildren && $this->taskQueue->count() > 0) {
-                    $this->executeTask($this->taskQueue->dequeue());
+                    $task = $this->taskQueue->dequeue();
+
+                    try {
+                        $task->start();
+                    } catch (\Exception $e) {
+                        $this->log(LOG_ERR, "Failed to start Task: " . $e->getMessage());
+                    }
                 }
             }
 
-            // reap dead children
+            // trigger task events and cleanup tasks
             foreach ($this->children as $pid => $task) {
-                if (($r = \pcntl_waitpid($pid, $status, WNOHANG)) > 0) {
-                    $task->setEndTime();
-                    $this->onChildExit($pid, $status, $task);
-
-                    $this->log(LOG_INFO, "Child with PID $pid exited with status $status, runtime was " . sprintf("%.3f", $task->runtime()) . "ms");
-                    unset($this->children[$pid]);
-                } else if ($r < 0) {
-                    $this->log(LOG_ERR, "pcntl_waitpid() returned error value for PID $pid");
+                try {
+                    $task->checkIn();
+                } catch (\Exception $e) {
+                    $this->log(LOG_ERR, "Task check in failed for PID $pid: " . $e->getMessage());
                 }
             }
 
@@ -136,43 +141,14 @@ abstract class Daemon
     }
 
     /**
-     * Setup task, fork child
-     *
-     * @return void
-     */
-    protected function executeTask(Task $task) {
-        $task->setStartTime();
-        // setup IPC
-        if ($ipc = $task->getIpc()) {
-            try {
-                $ipc->create();
-            } catch (\Exception $e) {
-                $this->log(LOG_ERR, "Failed to create IPC sockets: " . $e->getMessage());
-            }
-        }
-
-        if (($pid = \pcntl_fork()) > 0) { // parent
-            $this->children[$pid] = $task;
-            $this->log(LOG_NOTICE, "Spawned child with PID $pid");
-        } else if ($pid == 0) { // child
-            $retval = $task->run();
-            exit($retval);
-        } else {
-            $this->log(LOG_ERR, "Failed to fork child!");
-        }
-    }
-
-    /**
      * Queue a task to run later.  The queued function should return
      * the child process exit value.
      *
-     * @param callable $task Function to run
-     * @param mixed $cargo Any data to pass to task at runtime, also returned
-     *       to onChildExit()
+     * @param Task $task Task to run async
      *
      * @return void
      */
-    public function queueTask(Task $task) {
+    public function queueTask(Tasks\Task $task) {
         $this->taskQueue->enqueue($task);
     }
 
@@ -201,13 +177,29 @@ abstract class Daemon
     abstract public function run();
 
     /**
-     * Called when dead child is reaped.
+     * Tasks\Listener Implementation
+     * Record task in children array
      *
-     * @param int $pid PID of child
-     * @param int $status Exist status of child
-     * @param Task $task Task
+     * @param Task $task Task forked
+     * @param int $pid PID of the forked Task
      *
      * @return void
      */
-    abstract public function onChildExit($pid, $status, Task $task);
+    public function onTaskStart(Tasks\Task $task, int $pid) {
+        $this->children[$pid] = $task;
+    }
+
+    /**
+     * Tasks\Listener Implementation
+     * Remove task from children array
+     *
+     * @param Task $task Task forked
+     * @param int $pid PID of the Task
+     * @param int $status Exit value of task
+     *
+     * @return void
+     */
+    public function onTaskExit(Tasks\Task $task, int $pid, int $status) {
+        unset($this->children[$pid]);
+    }
 }
