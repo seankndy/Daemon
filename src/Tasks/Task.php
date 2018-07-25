@@ -131,11 +131,10 @@ abstract class Task {
     /**
      * Setup Task, then fork and return child PID
      *
-     * @return int
+     * @return void
      */
     public function start() {
         $this->setStartTime();
-
         $this->init();
 
         if (($pid = \pcntl_fork()) > 0) { // parent
@@ -144,8 +143,6 @@ abstract class Task {
             if ($this->listener) {
                 $this->listener->onTaskStart($this);
             }
-
-            return $pid;
         } else if ($pid == 0) { // child
             $retval = $this->run();
             exit($retval);
@@ -155,11 +152,11 @@ abstract class Task {
     }
 
     /**
-     * Parent check-in with running task
+     * Ran with each loop iteration on main thread
      *
      * @return void
      */
-    public function checkIn() {
+    public function onIterate() {
         // has this task process died yet?
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
             $this->end($status);

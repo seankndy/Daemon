@@ -31,7 +31,7 @@ class Socket implements Messenger {
 
         return $this;
     }
-    
+
     /**
      * Messenger Implementation
      * Write data to appropriate socket
@@ -64,7 +64,7 @@ class Socket implements Messenger {
         }
         $who = $this->isChild() ? self::CHILD : self::PARENT;
         $data = '';
-        while ($buf = $this->sockets[$who]->recv(4096, MSG_DONTWAIT)) {
+        while ($this->hasMessage() && $buf = $this->sockets[$who]->recv(4096, MSG_DONTWAIT)) {
             $data .= $buf;
         }
         return $data;
