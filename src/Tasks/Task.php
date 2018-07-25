@@ -125,7 +125,7 @@ abstract class Task {
      * @return int
      */
     public function start() {
-        $task->setStartTime();
+        $this->setStartTime();
 
         $this->init();
 
