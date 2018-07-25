@@ -1,7 +1,7 @@
 <?php
 namespace SeanKndy\Daemon\IPC;
 
-class Socket extends Messenger {
+class Socket implements Messenger {
     const PARENT = 0;
     const CHILD = 1;
 
@@ -23,8 +23,6 @@ class Socket extends Messenger {
      * @return $this
      */
     public function __construct() {
-        parent::__construct();
-
         $this->sockets = [];
         $this->ppid = \getmypid();
         return $this;
