@@ -127,12 +127,12 @@ abstract class Daemon implements Tasks\Listener
                 }
             }
 
-            // trigger task events and cleanup tasks
+            // call onIterate() for each Task
             foreach ($this->children as $pid => $task) {
                 try {
-                    $task->checkIn();
+                    $task->onIterate();
                 } catch (\Exception $e) {
-                    $this->log(LOG_ERR, "Task check in failed for PID $pid: " . $e->getMessage());
+                    $this->log(LOG_ERR, "Task onIterate() failed for PID $pid: " . $e->getMessage());
                 }
             }
 
