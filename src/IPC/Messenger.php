@@ -3,13 +3,6 @@ namespace SeanKndy\Daemon\IPC;
 
 interface Messenger {
     /**
-     * Doing any init, called just before forking
-     *
-     * @return void
-     */
-    public function init() : void;
-
-    /**
      * Send message
      *
      * @param string $message Message/data to send

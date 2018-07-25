@@ -25,20 +25,13 @@ class Socket implements Messenger {
     public function __construct() {
         $this->sockets = [];
         $this->ppid = \getmypid();
-        return $this;
-    }
 
-    /**
-     * Messenger Implementation
-     * Init sockets
-     *
-     * @return void
-     */
-    public function init() : void {
         $factory = new \Socket\Raw\Factory();
         $this->sockets = $factory->createPair(AF_UNIX, SOCK_STREAM, 0);
-    }
 
+        return $this;
+    }
+    
     /**
      * Messenger Implementation
      * Write data to appropriate socket
@@ -84,7 +77,7 @@ class Socket implements Messenger {
      */
     public function hasMessage() : bool {
         $who = $this->isChild() ? self::CHILD : self::PARENT;
-        return $this->sockets[$who]->selectRead($sec);
+        return $this->sockets[$who]->selectRead();
     }
 
     /**
