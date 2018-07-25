@@ -106,6 +106,15 @@ abstract class Task {
     }
 
     /**
+     * Get PID
+     *
+     * @return int
+     */
+    public function getPid() {
+        return $this->pid;
+    }
+
+    /**
      * Initialize task (main thread)
      *
      * @return void
@@ -130,8 +139,10 @@ abstract class Task {
         $this->init();
 
         if (($pid = \pcntl_fork()) > 0) { // parent
+            $this->pid = $pid;
+
             if ($this->listener) {
-                $this->listener->onTaskStart($this, $pid);
+                $this->listener->onTaskStart($this);
             }
 
             return $pid;
@@ -151,7 +162,7 @@ abstract class Task {
     public function checkIn() {
         // has this task process died yet?
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
-            $this->end($pid, $status);
+            $this->end($status);
         } else if ($r < 0) {
             throw new \RuntimeException("pcntl_waitpid() returned error value for PID {$this->pid}");
         }
@@ -162,11 +173,11 @@ abstract class Task {
      *
      * @return void
      */
-    public function end(int $pid, int $status) {
+    public function end(int $status) {
         $this->setEndTime();
 
         if ($this->listener) {
-            $this->listener->onTaskExit($this, $pid, $status);
+            $this->listener->onTaskExit($this, $status);
         }
     }
 }
