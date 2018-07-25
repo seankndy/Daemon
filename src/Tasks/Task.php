@@ -1,6 +1,8 @@
 <?php
 namespace SeanKndy\Daemon\Tasks;
 
+use SeanKndy\Daemon\Daemon;
+
 abstract class Task {
     /**
      * @var SeanKndy\Daemon\Daemon
@@ -35,7 +37,7 @@ abstract class Task {
      *
      * @return $this
      */
-    public function __construct(SeanKndy\Daemon\Daemon $daemon, $context = null, Listener $listener) {
+    public function __construct(Daemon $daemon, $context = null, Listener $listener) {
         $this->daemon = $daemon;
         $this->context = $context;
         $this->listener = $listener;
