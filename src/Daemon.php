@@ -185,8 +185,8 @@ abstract class Daemon implements Tasks\Listener
      *
      * @return void
      */
-    public function onTaskStart(Tasks\Task $task, int $pid) {
-        $this->children[$pid] = $task;
+    public function onTaskStart(Tasks\Task $task) {
+        $this->children[$task->getPid()] = $task;
     }
 
     /**
@@ -199,7 +199,7 @@ abstract class Daemon implements Tasks\Listener
      *
      * @return void
      */
-    public function onTaskExit(Tasks\Task $task, int $pid, int $status) {
-        unset($this->children[$pid]);
+    public function onTaskExit(Tasks\Task $task, int $status) {
+        unset($this->children[$task->getPid()]);
     }
 }
