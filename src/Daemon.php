@@ -1,33 +1,121 @@
 <?php
 namespace SeanKndy\Daemon;
 
-abstract class Daemon implements Tasks\Listener
+use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\EventDispatcher\Event;
+
+abstract class Daemon implements EventSubscriberInterface
 {
-    protected $maxChildren;
-    protected $children;
-    protected $pid;
-    protected $pidFile;
-    protected $name;
-    protected $syslog;
-    protected $runLoop;
-    protected $quietTime;
+    /**
+     * Currently running tasks
+     *
+     * @var array
+     */
+    protected $tasks;
+
+    /**
+     * Queue for tasks not yet running
+     *
+     * @var \SplQueue
+     */
     protected $taskQueue;
+
+    /**
+     * Maximum number of tasks to run at once
+     *
+     * @var int
+     */
+    protected $maxTasks;
+
+    /**
+     * EventDispatcher
+     *
+     * @var EventDispatcher
+     */
+    protected $dispatcher;
+
+    /**
+     * PID of daemon process
+     *
+     * @var int
+     */
+    protected $pid;
+
+    /**
+     * PID filename
+     *
+     * @var string
+     */
+    protected $pidFile;
+
+    /**
+     * Name of this process/daemon
+     *
+     * @var string
+     */
+    protected $name;
+
+    /**
+     * Log to Syslog?
+     *
+     * @var bool
+     */
+    protected $syslog;
+
+    /**
+     * Should main loop run
+     *
+     * @var bool
+     */
+    protected $runLoop;
+
+    /**
+     * Time to wait between loop iterations (microsec)
+     *
+     * @var int
+     */
+    protected $quietTime;
+
+    /**
+     * Daemonize to background or not
+     *
+     * @var bool
+     */
     protected $daemonize;
 
-    public function __construct($name, $maxChildren = 100, $quietTime = 1000000, $syslog = true) {
+    public function __construct($name, $maxTasks = 100, $quietTime = 1000000, $syslog = true) {
         $this->name = $name;
-        $this->maxChildren = $maxChildren;
+        $this->maxTasks = $maxTasks;
         $this->pidFile = null;
         $this->runLoop = true;
         $this->quietTime = $quietTime;
         $this->taskQueue = new \SplQueue();
-        $this->children = [];
+        $this->tasks = [];
         $this->syslog = $syslog;
         $this->daemonize = true;
+
+        // setup event dispatcher
+        $this->dispatcher = new EventDispatcher();
+        $this->addSubscriber($this);
 
         if ($syslog) {
             \openlog($name, LOG_PID, LOG_LOCAL0);
         }
+    }
+
+    /**
+     * EventSubscriberInterface Implementation
+     *
+     * @return array
+     */
+    public static function getSubscribedEvents() {
+        return [
+            Tasks\Event::START => 'onTaskStart',
+            Tasks\Event::START => 'onTaskStop',
+            // we want this to run after any user-defined events
+            Tasks\Event::ITERATION => ['onTaskIteration', -100]
+        ];
     }
 
     /**
@@ -111,12 +199,12 @@ abstract class Daemon implements Tasks\Listener
         while ($this->runLoop) {
             // execute concrete run() implemenation, which will queue
             // work needed done.
-            if (count($this->children) < $this->maxChildren) // don't run and get more tasks if we are at max already
+            if (count($this->tasks) < $this->maxTasks) // don't run and get more tasks if we are at max already
                 $this->run();
 
             // look for queued work, execute it
             if ($this->taskQueue->count() > 0) {
-                while (count($this->children) <= $this->maxChildren && $this->taskQueue->count() > 0) {
+                while (count($this->tasks) <= $this->maxTasks && $this->taskQueue->count() > 0) {
                     $task = $this->taskQueue->dequeue();
 
                     try {
@@ -128,7 +216,7 @@ abstract class Daemon implements Tasks\Listener
             }
 
             // call onIterate() for each Task
-            foreach ($this->children as $pid => $task) {
+            foreach ($this->tasks as $pid => $task) {
                 try {
                     $task->onIterate();
                 } catch (\Exception $e) {
@@ -177,29 +265,26 @@ abstract class Daemon implements Tasks\Listener
     abstract public function run();
 
     /**
-     * Tasks\Listener Implementation
      * Record task in children array
      *
-     * @param Task $task Task forked
-     * @param int $pid PID of the forked Task
+     * @param Tasks\Event Event object
      *
      * @return void
      */
-    public function onTaskStart(Tasks\Task $task) {
-        $this->children[$task->getPid()] = $task;
+    public function onTaskStart(Tasks\Event $event) {
+        $task = $event->getTask();
+        $this->tasks[$task->getPid()] = $task;
     }
 
     /**
-     * Tasks\Listener Implementation
      * Remove task from children array
      *
-     * @param Task $task Task forked
-     * @param int $pid PID of the Task
-     * @param int $status Exit value of task
+     * @param Tasks\Event Event object
      *
      * @return void
      */
-    public function onTaskExit(Tasks\Task $task, int $status) {
-        unset($this->children[$task->getPid()]);
+    public function onTaskExit(Tasks\Event $event) {
+        $task = $event->getTask();
+        unset($this->tasks[$task->getPid()]);
     }
 }

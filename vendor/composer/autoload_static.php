@@ -9,12 +9,17 @@ class ComposerStaticInita6a2bdca959d22686cfbe1089ae4066a
     public static $prefixLengthsPsr4 = array (
         'S' => 
         array (
+            'Symfony\\Component\\EventDispatcher\\' => 34,
             'Socket\\Raw\\' => 11,
             'SeanKndy\\Daemon\\' => 16,
         ),
     );
 
     public static $prefixDirsPsr4 = array (
+        'Symfony\\Component\\EventDispatcher\\' => 
+        array (
+            0 => __DIR__ . '/..' . '/symfony/event-dispatcher',
+        ),
         'Socket\\Raw\\' => 
         array (
             0 => __DIR__ . '/..' . '/clue/socket-raw/src',
