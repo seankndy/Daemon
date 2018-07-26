@@ -215,13 +215,16 @@ abstract class Daemon implements EventSubscriberInterface
                 }
             }
 
-            // call onIterate() for each Task
+            // iterate through tasks dispatching to listeners
             foreach ($this->tasks as $pid => $task) {
+                $this->dispatcher->dispatch(Tasks\Event::ITERATION, new Tasks\Event($task));
+                /*
                 try {
                     $task->onIterate();
                 } catch (\Exception $e) {
                     $this->log(LOG_ERR, "Task onIterate() failed for PID $pid: " . $e->getMessage());
                 }
+                */
             }
 
             usleep($this->quietTime);
