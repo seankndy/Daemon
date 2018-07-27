@@ -1,6 +1,7 @@
 <?php
 namespace SeanKndy\Daemon\Processes;
 
+use SeanKndy\Daemon\Tasks\Task;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
 class Process
@@ -11,7 +12,7 @@ class Process
     protected $dispatcher;
 
     /**
-     * @var Tasks\Task
+     * @var Task
      */
     protected $task;
 
@@ -34,7 +35,7 @@ class Process
      */
     protected $exitStatus;
 
-    public function __construct(Tasks\Task $task, EventDispatcher $dispatcher) {
+    public function __construct(Task $task, EventDispatcher $dispatcher) {
         $this->task = $task;
         $this->dispatcher = $dispatcher;
         return $this;
