@@ -284,6 +284,15 @@ class Daemon implements EventSubscriberInterface
     }
 
     /**
+     * Get event dispatcher
+     *
+     * @return EventDispather
+     */
+    public function getDispatcher() {
+        return $this->dispatcher;
+    }
+
+    /**
      * Record process
      *
      * @param Processes\Event Event object
