@@ -226,9 +226,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 }
             }
 
-            // iterate through tasks dispatching to listeners
+            // iterate through processes dispatching to listeners
             foreach ($this->processes as $pid => $process) {
-                $this->dispatcher->dispatch(DaemonEvent::LOOP_ITERATION, new DaemonEvent($this));
+                $this->dispatcher->dispatch(Processes\Event::ITERATION, new Processes\Event($process));
 
                 try {
                     $process->reap();
@@ -237,6 +237,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 }
             }
 
+            $this->dispatcher->dispatch(DaemonEvent::LOOP_ITERATION, new DaemonEvent($this));
             usleep($this->quietTime);
         }
 

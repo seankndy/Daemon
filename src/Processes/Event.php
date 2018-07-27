@@ -4,6 +4,7 @@ namespace SeanKndy\Daemon\Processes;
 class Event extends \Symfony\Component\EventDispatcher\Event {
      const START = 'process.start';
      const EXIT = 'process.exit';
+     const ITERATION = 'process.iteration';
 
      /**
       * Process subject
