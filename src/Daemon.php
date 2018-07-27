@@ -260,6 +260,7 @@ abstract class Daemon implements EventSubscriberInterface
      */
     public function onProcessStart(Processes\Event $event) {
         $p = $event->getProcess();
+        $this->log(LOG_NOTICE, "Spawned child with PID " . $p->getPid());
         $this->processes[$p->getPid()] = $p;
     }
 
@@ -272,6 +273,7 @@ abstract class Daemon implements EventSubscriberInterface
      */
     public function onProcessExit(Processes\Event $event) {
         $p = $event->getProcess();
+        $this->log(LOG_INFO, "Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $process->runtime()) . "ms");
         unset($this->processes[$p->getPid()]);
     }
 }
