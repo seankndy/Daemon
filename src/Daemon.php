@@ -8,25 +8,25 @@ use Symfony\Component\EventDispatcher\Event;
 abstract class Daemon implements EventSubscriberInterface
 {
     /**
-     * Currently running tasks
+     * Currently running processes
      *
      * @var array
      */
-    protected $tasks;
+    protected $processes;
 
     /**
      * Queue for tasks not yet running
      *
      * @var \SplQueue
      */
-    protected $taskQueue;
+    protected $processQueue;
 
     /**
      * Maximum number of tasks to run at once
      *
      * @var int
      */
-    protected $maxTasks;
+    protected $maxProcesses;
 
     /**
      * EventDispatcher
@@ -84,14 +84,14 @@ abstract class Daemon implements EventSubscriberInterface
      */
     protected $daemonize;
 
-    public function __construct($name, $maxTasks = 100, $quietTime = 1000000, $syslog = true) {
+    public function __construct($name, $maxProcesses = 100, $quietTime = 1000000, $syslog = true) {
         $this->name = $name;
-        $this->maxTasks = $maxTasks;
+        $this->maxProcesses = $maxProcesses;
         $this->pidFile = null;
         $this->runLoop = true;
         $this->quietTime = $quietTime;
-        $this->taskQueue = new \SplQueue();
-        $this->tasks = [];
+        $this->processQueue = new \SplQueue();
+        $this->processes = [];
         $this->syslog = $syslog;
         $this->daemonize = true;
 
@@ -111,10 +111,8 @@ abstract class Daemon implements EventSubscriberInterface
      */
     public static function getSubscribedEvents() {
         return [
-            Tasks\Event::START => 'onTaskStart',
-            Tasks\Event::START => 'onTaskStop',
-            // we want this to run after any user-defined events
-            Tasks\Event::ITERATION => ['onTaskIteration', -100]
+            Processes\Event::START => 'onProcessStart',
+            Processes\Event::EXIT => 'onProcessExit'
         ];
     }
 
@@ -148,34 +146,24 @@ abstract class Daemon implements EventSubscriberInterface
      * @return void
      */
     public function start() {
+        $this->dispatcher->dispatch(DaemonEvent::START, new DaemonEvent($this));
+
         if ($this->daemonize) {
-            $this->pid = \pcntl_fork();
-            if ($this->pid == -1) {
-                $this->log(LOG_ERR, "Failed to fork to a daemon");
-                exit(1);
-            } else if ($this->pid) {
-                $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
-                if ($this->pidFile) {
-                    if (!($fp = @\fopen($this->pidFile, 'w+'))) {
-                        $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
-                        exit(1);
-                    }
-                    \fwrite($fp, $this->pid);
-                    \fclose($fp);
-                }
-                if ($this->syslog) \closelog();
-                exit(0);
+            try {
+                $this->pid = Process::daemonize();
+            } catch (\RuntimeException $e) {
+                $this->log(LOG_ERR, $e->getMessage());
             }
-            $sid = \posix_setsid();
 
-            \fclose(STDIN);
-            \fclose(STDOUT);
-            \fclose(STDERR);
-            \chdir('/');
-
-            $stdIn = \fopen('/dev/null', 'r');
-            $stdOut = \fopen('/dev/null', 'w');
-            $stdErr = \fopen('php://stdout', 'w');
+            $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
+            if ($this->pidFile) {
+                if (!($fp = @\fopen($this->pidFile, 'w+'))) {
+                    $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
+                    exit(1);
+                }
+                \fwrite($fp, $this->pid);
+                \fclose($fp);
+            }
         }
 
         /* example of signal handling
@@ -199,36 +187,32 @@ abstract class Daemon implements EventSubscriberInterface
         while ($this->runLoop) {
             // execute concrete run() implemenation, which will queue
             // work needed done.
-            if (count($this->tasks) < $this->maxTasks) // don't run and get more tasks if we are at max already
+            if (count($this->processes) < $this->maxProcesses) // don't run and get more tasks if we are at max already
                 $this->run();
 
             // look for queued work, execute it
-            if ($this->taskQueue->count() > 0) {
-                while (count($this->tasks) <= $this->maxTasks && $this->taskQueue->count() > 0) {
-                    $task = $this->taskQueue->dequeue();
-
-                    try {
-                        $task->start();
-                    } catch (\Exception $e) {
-                        $this->log(LOG_ERR, "Failed to start Task: " . $e->getMessage());
-                    }
+            if ($this->processQueue->count() > 0) {
+                while (count($this->processes) <= $this->maxProcesses && $this->processQueue->count() > 0) {
+                    $process = $this->processQueue->dequeue();
+                    $process->fork();
                 }
             }
 
             // iterate through tasks dispatching to listeners
-            foreach ($this->tasks as $pid => $task) {
-                $this->dispatcher->dispatch(Tasks\Event::ITERATION, new Tasks\Event($task));
-                /*
+            foreach ($this->processes as $pid => $process) {
+                $this->dispatcher->dispatch(DaemonEvent::LOOP_ITERATION, new DaemonEvent($this));
+
                 try {
-                    $task->onIterate();
-                } catch (\Exception $e) {
-                    $this->log(LOG_ERR, "Task onIterate() failed for PID $pid: " . $e->getMessage());
+                    $process->reap();
+                } catch (\RuntimeException $e) {
+                    $this->log(LOG_ERR, "Failed to reap process: " . $e->getMessage());
                 }
-                */
             }
 
             usleep($this->quietTime);
         }
+
+        $this->dispatcher->dispatch(DaemonEvent::STOP, new DaemonEvent($this));
     }
 
     /**
@@ -240,7 +224,7 @@ abstract class Daemon implements EventSubscriberInterface
      * @return void
      */
     public function queueTask(Tasks\Task $task) {
-        $this->taskQueue->enqueue($task);
+        $this->processQueue->enqueue(new Process($task, $this->dispatcher));
     }
 
     /**
@@ -268,26 +252,26 @@ abstract class Daemon implements EventSubscriberInterface
     abstract public function run();
 
     /**
-     * Record task in children array
+     * Record process
      *
-     * @param Tasks\Event Event object
+     * @param Processes\Event Event object
      *
      * @return void
      */
-    public function onTaskStart(Tasks\Event $event) {
-        $task = $event->getTask();
-        $this->tasks[$task->getPid()] = $task;
+    public function onProcessStart(Processes\Event $event) {
+        $p = $event->getProcess();
+        $this->processes[$p->getPid()] = $p;
     }
 
     /**
-     * Remove task from children array
+     * Remove process
      *
-     * @param Tasks\Event Event object
+     * @param Processes\Event Event object
      *
      * @return void
      */
-    public function onTaskExit(Tasks\Event $event) {
-        $task = $event->getTask();
-        unset($this->tasks[$task->getPid()]);
+    public function onProcessExit(Processes\Event $event) {
+        $p = $event->getProcess();
+        unset($this->processes[$p->getPid()]);
     }
 }
