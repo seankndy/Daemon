@@ -105,7 +105,7 @@ class Daemon implements EventSubscriberInterface
 
         // setup event dispatcher
         $this->dispatcher = new EventDispatcher();
-        $this->addSubscriber($this);
+        $this->dispatcher->addSubscriber($this);
 
         if ($syslog) {
             \openlog($name, LOG_PID, LOG_LOCAL0);
