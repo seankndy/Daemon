@@ -4,9 +4,15 @@ namespace SeanKndy\Daemon;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\EventDispatcher\Event;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerAwareTrait;
+use Psr\Log\NullLogger;
 
-class Daemon implements EventSubscriberInterface
+class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 {
+    use LoggerAwareTrait;
+
     /**
      * Currently running processes
      *
@@ -50,20 +56,6 @@ class Daemon implements EventSubscriberInterface
     protected $pidFile;
 
     /**
-     * Name of this process/daemon
-     *
-     * @var string
-     */
-    protected $name;
-
-    /**
-     * Log to Syslog?
-     *
-     * @var bool
-     */
-    protected $syslog;
-
-    /**
      * Should main loop run
      *
      * @var bool
@@ -91,25 +83,34 @@ class Daemon implements EventSubscriberInterface
      */
     protected $producers;
 
-    public function __construct($name, $maxProcesses = 100, $quietTime = 1000000, $syslog = true) {
-        $this->name = $name;
-        $this->maxProcesses = $maxProcesses;
-        $this->pidFile = null;
-        $this->runLoop = true;
-        $this->quietTime = $quietTime;
+    /**
+     * Constructor
+     *
+     * @param int $maxProcesses Maximum number of processes that can run at once
+     * @param int $quietTime Length of time to pause between loop iterations
+     * @param LoggerInterface $logger Logger for events
+     *
+     * @return $this
+     */
+    public function __construct($maxProcesses = 100, $quietTime = 1000000, LoggerInterface $logger = null) {
         $this->processQueue = new \SplQueue();
         $this->processes = [];
-        $this->syslog = $syslog;
+        $this->maxProcesses = $maxProcesses;
+
+        $this->pid = 0;
+        $this->pidFile = null;
+        $this->runLoop = true;
         $this->daemonize = true;
+        $this->quietTime = $quietTime;
+
+        $this->logger = $logger == $null ? new NullLogger : $logger;
         $this->producers = new \SplObjectStorage();
 
         // setup event dispatcher
         $this->dispatcher = new EventDispatcher();
         $this->dispatcher->addSubscriber($this);
 
-        if ($syslog) {
-            \openlog($name, LOG_PID, LOG_LOCAL0);
-        }
+        return $this;
     }
 
     /**
@@ -125,27 +126,21 @@ class Daemon implements EventSubscriberInterface
     }
 
     /**
-     * Set daemonize flag
+     * Attempt to fill process queue from producers
      *
-     * @param boolean $d
-     *
-     * @return $this
+     * @return void
      */
-    public function setDaemonize($d) {
-        $this->daemonize = $d;
-        return $this;
-    }
-
-    /**
-     * Set PID file
-     *
-     * @param string $file File name
-     *
-     * @return $this
-     */
-    public function setPidFile($file) {
-        $this->pidFile = $file;
-        return $this;
+    protected function fillProcessQueue() {
+        foreach ($this->producers as $producer) {
+            if ($task = $producer->produce()) {
+                if (!is_array($task)) {
+                    $task = [$task];
+                }
+                foreach ($task as $t) {
+                    $this->processQueue->enqueue(new Processes\Process($t, $this->dispatcher));
+                }
+            }
+        }
     }
 
     /**
@@ -160,13 +155,13 @@ class Daemon implements EventSubscriberInterface
             try {
                 $this->pid = Process::daemonize();
             } catch (\RuntimeException $e) {
-                $this->log(LOG_ERR, $e->getMessage());
+                $this->logger->error($e->getMessage());
             }
 
-            $this->log(LOG_INFO, "Became daemon with PID " . $this->pid);
+            $this->logger->notice("Became daemon with PID " . $this->pid);
             if ($this->pidFile) {
                 if (!($fp = @\fopen($this->pidFile, 'w+'))) {
-                    $this->log(LOG_ERR, "Failed to open/create PID file: " . $this->pidFile);
+                    $this->logger->error("Failed to open/create PID file: " . $this->pidFile);
                     exit(1);
                 }
                 \fwrite($fp, $this->pid);
@@ -182,8 +177,6 @@ class Daemon implements EventSubscriberInterface
         */
 
         $this->loop();
-
-        if ($this->syslog) \closelog();
     }
 
     /**
@@ -240,7 +233,7 @@ class Daemon implements EventSubscriberInterface
                 try {
                     $process->reap();
                 } catch (\RuntimeException $e) {
-                    $this->log(LOG_ERR, "Failed to reap process: " . $e->getMessage());
+                    $this->logger->error("Failed to reap process: " . $e->getMessage());
                 }
             }
 
@@ -251,32 +244,31 @@ class Daemon implements EventSubscriberInterface
     }
 
     /**
-     * Attempt to fill process queue from producers
+     * Record process
+     *
+     * @param Processes\Event Event object
      *
      * @return void
      */
-    protected function fillProcessQueue() {
-        foreach ($this->producers as $producer) {
-            if ($task = $producer->produce()) {
-                if (!is_array($task)) {
-                    $task = [$task];
-                }
-                foreach ($task as $t) {
-                    $this->processQueue->enqueue(new Processes\Process($t, $this->dispatcher));
-                }
-            }
-        }
+    public function onProcessStart(Processes\Event $event) {
+        $p = $event->getProcess();
+        $this->dispatcher->dispatch(Tasks\Event::START, new Tasks\Event($p->getTask()));
+        $this->logger->notice("Spawned child with PID " . $p->getPid());
+        $this->processes[$p->getPid()] = $p;
     }
 
     /**
-     * Log message to syslog
+     * Remove process
+     *
+     * @param Processes\Event Event object
      *
      * @return void
      */
-    public function log($code, $msg) {
-        if ($this->syslog) {
-            \syslog($code, $msg);
-        }
+    public function onProcessExit(Processes\Event $event) {
+        $p = $event->getProcess();
+        $this->dispatcher->dispatch(Tasks\Event::END, new Tasks\Event($p->getTask()));
+        $this->logger->notice("Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "ms");
+        unset($this->processes[$p->getPid()]);
     }
 
     public function sigHandler($signo) {
@@ -293,30 +285,35 @@ class Daemon implements EventSubscriberInterface
     }
 
     /**
-     * Record process
+     * Get LoggerInterface
      *
-     * @param Processes\Event Event object
-     *
-     * @return void
+     * @return LoggerInterface
      */
-    public function onProcessStart(Processes\Event $event) {
-        $p = $event->getProcess();
-        $this->dispatcher->dispatch(Tasks\Event::START, new Tasks\Event($p->getTask()));
-        $this->log(LOG_NOTICE, "Spawned child with PID " . $p->getPid());
-        $this->processes[$p->getPid()] = $p;
+    public function getLogger() {
+        return $this->logger;
     }
 
     /**
-     * Remove process
+     * Set daemonize flag
      *
-     * @param Processes\Event Event object
+     * @param boolean $d
      *
-     * @return void
+     * @return $this
      */
-    public function onProcessExit(Processes\Event $event) {
-        $p = $event->getProcess();
-        $this->dispatcher->dispatch(Tasks\Event::END, new Tasks\Event($p->getTask()));
-        $this->log(LOG_INFO, "Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "ms");
-        unset($this->processes[$p->getPid()]);
+    public function setDaemonize($d) {
+        $this->daemonize = $d;
+        return $this;
+    }
+
+    /**
+     * Set PID file
+     *
+     * @param string $file File name
+     *
+     * @return $this
+     */
+    public function setPidFile($file) {
+        $this->pidFile = $file;
+        return $this;
     }
 }
