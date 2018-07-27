@@ -262,7 +262,7 @@ class Daemon implements EventSubscriberInterface
                     $task = [$task];
                 }
                 foreach ($task as $t) {
-                    $this->processQueue->enqueue(new Process($t, $this->dispatcher));
+                    $this->processQueue->enqueue(new Processes\Process($t, $this->dispatcher));
                 }
             }
         }
