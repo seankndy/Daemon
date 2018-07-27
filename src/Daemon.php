@@ -5,7 +5,7 @@ use Symfony\Component\EventDispatcher\EventDispatcher;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\EventDispatcher\Event;
 
-abstract class Daemon implements EventSubscriberInterface
+class Daemon implements EventSubscriberInterface
 {
     /**
      * Currently running processes
@@ -84,6 +84,13 @@ abstract class Daemon implements EventSubscriberInterface
      */
     protected $daemonize;
 
+    /**
+     * Task Producers
+     *
+     * @var array
+     */
+    protected $producers;
+
     public function __construct($name, $maxProcesses = 100, $quietTime = 1000000, $syslog = true) {
         $this->name = $name;
         $this->maxProcesses = $maxProcesses;
@@ -94,6 +101,7 @@ abstract class Daemon implements EventSubscriberInterface
         $this->processes = [];
         $this->syslog = $syslog;
         $this->daemonize = true;
+        $this->producers = new \SplObjectStorage();
 
         // setup event dispatcher
         $this->dispatcher = new EventDispatcher();
@@ -179,16 +187,43 @@ abstract class Daemon implements EventSubscriberInterface
     }
 
     /**
+     * Register task producer
+     *
+     * @param Tasks\Producer $producer
+     *
+     * @return $this
+     */
+    public function addProducer(Tasks\Producer $producer) {
+        if ($producer instanceof EventSubscriberInterface) {
+            $this->dispatcher->addSubscriber($producer);
+        }
+        $this->producers->attach($producer);
+    }
+
+    /**
+     * Unregister task producer
+     *
+     * @param Tasks\Producer $producer
+     *
+     * @return $this
+     */
+    public function removeProducer(Tasks\Producer $producer) {
+        if ($producer instanceof EventSubscriberInterface) {
+            $this->dispatcher->removeSubscriber($producer);
+        }
+        $this->producers->detach($producer);
+    }
+
+    /**
      * Main work loop
      *
      * @return void
      */
     protected function loop() {
         while ($this->runLoop) {
-            // execute concrete run() implemenation, which will queue
-            // work needed done.
-            if (count($this->processes) < $this->maxProcesses) // don't run and get more tasks if we are at max already
-                $this->run();
+            if (count($this->processes) < $this->maxProcesses) {
+                $this->fillProcessQueue();
+            }
 
             // look for queued work, execute it
             if ($this->processQueue->count() > 0) {
@@ -216,15 +251,21 @@ abstract class Daemon implements EventSubscriberInterface
     }
 
     /**
-     * Queue a task to run later.  The queued function should return
-     * the child process exit value.
-     *
-     * @param Task $task Task to run async
+     * Attempt to fill process queue from producers
      *
      * @return void
      */
-    public function queueTask(Tasks\Task $task) {
-        $this->processQueue->enqueue(new Process($task, $this->dispatcher));
+    protected function fillProcessQueue() {
+        foreach ($this->producers as $producer) {
+            if ($task = $producer->produce()) {
+                if (!is_array($task)) {
+                    $task = [$task];
+                }
+                foreach ($task as $t) {
+                    $this->processQueue->enqueue(new Process($t, $this->dispatcher));
+                }
+            }
+        }
     }
 
     /**
@@ -243,15 +284,6 @@ abstract class Daemon implements EventSubscriberInterface
     }
 
     /**
-     * Implement this function and call queueTask() to schedule tasks to be forked/ran.
-     * This function should not loop endlessly/block, but should fire off queueTask()
-     * when something needs executed.
-     *
-     * @return void
-     */
-    abstract public function run();
-
-    /**
      * Record process
      *
      * @param Processes\Event Event object
@@ -260,6 +292,7 @@ abstract class Daemon implements EventSubscriberInterface
      */
     public function onProcessStart(Processes\Event $event) {
         $p = $event->getProcess();
+        $this->dispatcher->dispatch(Tasks\Event::START, new Tasks\Event($p->getTask()));
         $this->log(LOG_NOTICE, "Spawned child with PID " . $p->getPid());
         $this->processes[$p->getPid()] = $p;
     }
@@ -273,6 +306,7 @@ abstract class Daemon implements EventSubscriberInterface
      */
     public function onProcessExit(Processes\Event $event) {
         $p = $event->getProcess();
+        $this->dispatcher->dispatch(Tasks\Event::END, new Tasks\Event($p->getTask()));
         $this->log(LOG_INFO, "Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $process->runtime()) . "ms");
         unset($this->processes[$p->getPid()]);
     }

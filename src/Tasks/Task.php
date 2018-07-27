@@ -9,7 +9,7 @@ interface Task {
      *
      * @return void
      */
-    public function init(Daemon $daemon) : void;
+    public function init() : void;
 
     /**
      * Do the work (child thread)
@@ -23,5 +23,5 @@ interface Task {
       *
       * @return void
       */
-     public function finish();
+     public function finish() : void;
 }

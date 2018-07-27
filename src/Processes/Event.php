@@ -1,7 +1,7 @@
 <?php
 namespace SeanKndy\Daemon\Processes;
 
-class Event extends \Symfony\Component\EventDispatcher\GenericEvent {
+class Event extends \Symfony\Component\EventDispatcher\Event {
      const START = 'process.start';
      const EXIT = 'process.exit';
 
