@@ -1,5 +1,5 @@
 <?php
-namespace SeanKndy\Daemon;
+namespace SeanKndy\Daemon\Processes;
 
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
