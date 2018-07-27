@@ -49,7 +49,7 @@ class Process
      */
     public function fork() {
         $this->setStartTime();
-        $task->init();
+        $this->task->init();
         if (($pid = \pcntl_fork()) > 0) { // in parent
             $this->pid = $pid;
             $this->dispatcher->dispatch(Event::START, new Event($this));
