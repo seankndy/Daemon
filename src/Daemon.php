@@ -103,7 +103,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
         $this->daemonize = true;
         $this->quietTime = $quietTime;
 
-        $this->logger = $logger == $null ? new NullLogger : $logger;
+        $this->logger = $logger == null ? new NullLogger : $logger;
         $this->producers = new \SplObjectStorage();
 
         // setup event dispatcher
