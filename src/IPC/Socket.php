@@ -41,10 +41,6 @@ class Socket implements Messenger {
      * @return boolean
      */
     public function send(string $message) : bool {
-        if (!$this->sockets) {
-            throw new \RuntimeException("Cannot call write() before calling create()!");
-        }
-
         // close opposite FD
         $this->sockets[$this->isChild() ? self::PARENT : self::CHILD]->close();
 
@@ -59,9 +55,6 @@ class Socket implements Messenger {
      * @return string
      */
     public function receive() : string {
-        if (!$this->sockets) {
-            throw new \RuntimeException("Cannot call read() before calling create()!");
-        }
         $who = $this->isChild() ? self::CHILD : self::PARENT;
         $data = '';
         while ($this->hasMessage() && $buf = $this->sockets[$who]->recv(4096, MSG_DONTWAIT)) {

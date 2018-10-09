@@ -69,7 +69,7 @@ class Process
     public function reap() {
         // reap task process if zombied
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
-            $this->exitStatus = $status;
+            $this->exitStatus = \pcntl_wexitstatus($status);
             $this->setEndTime();
             $this->task->finish();
             $this->dispatcher->dispatch(Event::EXIT, new Event($this));
