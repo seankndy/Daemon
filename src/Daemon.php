@@ -253,7 +253,6 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     public function onProcessStart(Processes\Event $event) {
         $p = $event->getProcess();
-        $this->dispatcher->dispatch(Tasks\Event::START, new Tasks\Event($p->getTask()));
         $this->logger->notice("Spawned child with PID " . $p->getPid());
         $this->processes[$p->getPid()] = $p;
     }
@@ -267,7 +266,6 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     public function onProcessExit(Processes\Event $event) {
         $p = $event->getProcess();
-        $this->dispatcher->dispatch(Tasks\Event::END, new Tasks\Event($p->getTask()));
         $this->logger->notice("Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "ms");
         unset($this->processes[$p->getPid()]);
     }
