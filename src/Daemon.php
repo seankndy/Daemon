@@ -126,19 +126,29 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     }
 
     /**
-     * Attempt to fill process queue from producers
+     * Attempt to fill process queue from producers, distributing evenly
+     * among producers
      *
      * @return void
      */
     protected function fillProcessQueue() {
-        foreach ($this->producers as $producer) {
-            if ($task = $producer->produce()) {
-                if (!is_array($task)) {
-                    $task = [$task];
+        $maxFill = $this->maxProcesses - count($this->processes);
+
+        for ($n = 0; $n < $maxFill; ) {
+            $empty = true;
+            foreach ($this->producers as $producer) {
+                if (($task = $producer->produce()) instanceof Tasks\Task) {
+                    $empty = false;
+
+                    $this->processQueue->enqueue(new Processes\Process($task, $this->dispatcher));
+
+                    if (++$n == $maxFill) {
+                        break;
+                    }
                 }
-                foreach ($task as $t) {
-                    $this->processQueue->enqueue(new Processes\Process($t, $this->dispatcher));
-                }
+            }
+            if ($empty) {
+                break;
             }
         }
     }
@@ -214,9 +224,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     protected function loop() {
         while ($this->runLoop) {
-            if (count($this->processes) < $this->maxProcesses) {
-                $this->fillProcessQueue();
-            }
+            // fill up on tasks if we can
+            $this->fillProcessQueue();
 
             // look for queued work, execute it
             if ($this->processQueue->count() > 0) {

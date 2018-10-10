@@ -3,9 +3,9 @@ namespace SeanKndy\Daemon\Tasks;
 
 interface Producer {
     /**
-     * Produce Task(s) to run, or null if none
+     * Produce Task to run, or null if none
      *
-     * @return Task or array
+     * @return Task
      */
     public function produce();
 }
