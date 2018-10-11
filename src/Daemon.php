@@ -293,6 +293,20 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     }
 
     /**
+     * Add listener for dispatcher
+     *
+     * @param string $eventName The Event to listen on
+     * @param callable $listener The listener
+     * @param int $priority The higher this value, the earlier an event listener
+     *    will be triggered in the chain (defaults to 0)
+     *
+     * @return void
+     */
+    public function addListener(string $eventName, $listener, int $prio) {
+        $this->dispatcher->addListener($eventName, $listener, $prio);
+    }
+
+    /**
      * Get LoggerInterface
      *
      * @return LoggerInterface
