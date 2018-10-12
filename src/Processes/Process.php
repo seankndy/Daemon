@@ -71,7 +71,7 @@ class Process
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
             $this->exitStatus = \pcntl_wexitstatus($status);
             $this->setEndTime();
-            $this->task->finish();
+            $this->task->finish($this->exitStatus);
             $this->dispatcher->dispatch(Event::EXIT, new Event($this));
         } else if ($r < 0) {
             throw new \RuntimeException("pcntl_waitpid() returned error value for PID $pid");
