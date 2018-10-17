@@ -145,6 +145,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                     if (++$n == $maxFill) {
                         break;
                     }
+                } else if ($task) {
+                    $this->logger->error("Producer '" . get_class($producer) . "' produced a non-Task object.  This is an error and I am removing this producer from the daemon.")
+                    $this->removeProducer($producer);
                 }
             }
             if ($empty) {
@@ -241,7 +244,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
                 try {
                     $process->reap();
-                } catch (\RuntimeException $e) {
+                } catch (\Exception $e) {
                     $this->logger->error("Failed to reap process: " . $e->getMessage());
                 }
             }
