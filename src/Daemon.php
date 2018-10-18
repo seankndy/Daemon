@@ -146,7 +146,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                         break;
                     }
                 } else if ($task) {
-                    $this->logger->error("Producer '" . get_class($producer) . "' produced a non-Task object.  This is an error and I am removing this producer from the daemon.")
+                    $this->logger->error("Producer '" . get_class($producer) . "' produced a non-Task object.  This is an error and I am removing this producer from the daemon.");
                     $this->removeProducer($producer);
                 }
             }
