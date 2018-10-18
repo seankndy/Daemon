@@ -305,7 +305,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    public function addListener(string $eventName, $listener, int $prio) {
+    public function addListener(string $eventName, $listener, int $prio = 0) {
         $this->dispatcher->addListener($eventName, $listener, $prio);
     }
 
