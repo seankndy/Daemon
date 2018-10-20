@@ -19,7 +19,7 @@ class Process
     /**
      * @var float
      */
-    protected $startTime, $endTime;
+    protected $startTime, $endTime, $maxRuntime = 0;
 
     /**
      * Process ID
@@ -67,6 +67,12 @@ class Process
      * @return void
      */
     public function reap() {
+        // force kill if this process is over max runtime
+        if ($this->maxRuntime && time() - $this->startTime >= $this->maxRuntime) {
+            \posix_kill($this->pid, SIGKILL);
+            throw new Exceptions\RuntimeExceeded("Process with PID {$this->pid} has exceeded runtime, SIGKILL sent to process.");
+        }
+
         // reap task process if zombied
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
             $this->exitStatus = \pcntl_wexitstatus($status);
@@ -76,6 +82,16 @@ class Process
         } else if ($r < 0) {
             throw new \RuntimeException("pcntl_waitpid() returned error value for PID $pid");
         }
+    }
+    
+    /**
+     * Set a max runtime of process
+     *
+     * @return $this
+     */
+    public function setMaxRuntime(int $runtime) {
+        $this->maxRuntime = $runtime;
+        return $this;
     }
 
     /**

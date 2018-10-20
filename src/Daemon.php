@@ -70,6 +70,13 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     protected $quietTime;
 
     /**
+     * Max runtime of a child process (0 for no limit)
+     *
+     * @var int
+     */
+    protected $childTimeout = 0;
+
+    /**
      * Daemonize to background or not
      *
      * @var bool
@@ -92,10 +99,11 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function __construct($maxProcesses = 100, $quietTime = 1000000, LoggerInterface $logger = null) {
+    public function __construct($maxProcesses = 100, $quietTime = 1000000, $childTimeout = 30, LoggerInterface $logger = null) {
         $this->processQueue = new \SplQueue();
         $this->processes = [];
         $this->maxProcesses = $maxProcesses;
+        $this->childTimeout = $childTimeout;
 
         $this->pid = 0;
         $this->pidFile = null;
@@ -140,7 +148,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 if (($task = $producer->produce()) instanceof Tasks\Task) {
                     $empty = false;
 
-                    $this->processQueue->enqueue(new Processes\Process($task, $this->dispatcher));
+                    $this->processQueue->enqueue(new Processes\Process($task, $this->dispatcher, $this->childTimeout));
 
                     if (++$n == $maxFill) {
                         break;
@@ -244,6 +252,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
                 try {
                     $process->reap();
+                } catch (Processes\Exceptions\RuntimeExceeded $e) {
+                    $this->logger->error($e->getMessage());
                 } catch (\Exception $e) {
                     $this->logger->error("Failed to reap process: " . $e->getMessage());
                 }
