@@ -68,12 +68,6 @@ class Process
      * @return void
      */
     public function reap() {
-        // force kill if this process is over max runtime
-        if ($this->maxRuntime && (microtime(true) - $this->startTime) >= $this->maxRuntime) {
-            \posix_kill($this->pid, SIGKILL);
-            throw new Exceptions\RuntimeExceeded("Process with PID {$this->pid} has exceeded runtime, SIGKILL sent to process.");
-        }
-
         // reap task process if zombied
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
             $this->exitStatus = \pcntl_wexitstatus($status);
@@ -82,6 +76,12 @@ class Process
             $this->dispatcher->dispatch(Event::EXIT, new Event($this));
         } else if ($r < 0) {
             throw new \RuntimeException("pcntl_waitpid() returned error value for PID $pid");
+        }
+
+        // force kill if this process is over max runtime
+        if ($this->maxRuntime && (microtime(true) - $this->startTime) >= $this->maxRuntime) {
+            \posix_kill($this->pid, SIGKILL);
+            throw new Exceptions\RuntimeExceeded("Process with PID {$this->pid} has exceeded runtime, SIGKILL sent to process.");
         }
     }
     
