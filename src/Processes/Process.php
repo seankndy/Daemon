@@ -68,7 +68,7 @@ class Process
      */
     public function reap() {
         // force kill if this process is over max runtime
-        if ($this->maxRuntime && time() - $this->startTime >= $this->maxRuntime) {
+        if ($this->maxRuntime && (microtime(true) - $this->startTime) >= $this->maxRuntime) {
             \posix_kill($this->pid, SIGKILL);
             throw new Exceptions\RuntimeExceeded("Process with PID {$this->pid} has exceeded runtime, SIGKILL sent to process.");
         }
@@ -171,7 +171,7 @@ class Process
      * @return float
      */
     public function runtime() {
-        return sprintf('%.5f', ($this->endTime-$this->startTime)/1000);
+        return sprintf('%.5f', ($this->endTime-$this->startTime));
     }
 
     /**
