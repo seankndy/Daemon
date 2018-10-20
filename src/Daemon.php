@@ -288,7 +288,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     public function onProcessExit(Processes\Event $event) {
         $p = $event->getProcess();
-        $this->logger->notice("Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "ms");
+        $this->logger->notice("Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "sec");
         unset($this->processes[$p->getPid()]);
     }
 

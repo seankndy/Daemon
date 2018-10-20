@@ -35,9 +35,10 @@ class Process
      */
     protected $exitStatus;
 
-    public function __construct(Task $task, EventDispatcher $dispatcher) {
+    public function __construct(Task $task, EventDispatcher $dispatcher, int $maxRuntime = 0) {
         $this->task = $task;
         $this->dispatcher = $dispatcher;
+        $this->maxRuntime = $maxRuntime;
         return $this;
     }
 
@@ -166,7 +167,7 @@ class Process
     }
 
     /**
-     * Calclate runtime in milliseconds
+     * Calclate runtime in seconds
      *
      * @return float
      */
