@@ -84,7 +84,7 @@ class Process
             }
         }
     }
-    
+
     /**
      * Set a max runtime of process
      *
@@ -180,7 +180,7 @@ class Process
      *
      * @return int
      */
-    public static function daemonize(Daemon $daemon) {
+    public static function daemonize() {
         $pid = \pcntl_fork();
         if ($pid == -1) {
             throw new \RuntimeException("Failed to pcntl_fork()!");
