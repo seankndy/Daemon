@@ -1,6 +1,6 @@
 {
     "name": "seankndy/daemon",
-    "description": "Simple PHP daemon helper",
+    "description": "PHP package for creating and managing UNIX daemons",
     "authors": [
         {
             "name": "Sean Kennedy",
@@ -9,10 +9,11 @@
     ],
     "keywords": [
         "fork",
-        "daemon"
+        "daemon",
+	"process"
     ],
     "require": {
-        "php": ">=5.4.0",
+        "php": "^7",
         "clue/socket-raw": ">=1.3",
         "symfony/event-dispatcher": "^4.1",
         "psr/log": "^1.0"
