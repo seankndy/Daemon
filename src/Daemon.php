@@ -148,13 +148,17 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 if (($task = $producer->produce()) instanceof Tasks\Task) {
                     $empty = false;
 
-                    $this->processQueue->enqueue(new Processes\Process($task, $this->dispatcher, $this->childTimeout));
+                    $process = (new Processes\Process(
+                        $task, $this->dispatcher, $this->childTimeout
+                    ))->setProducer($producer);
+                    $this->processQueue->enqueue($process);
 
                     if (++$n == $maxFill) {
                         break;
                     }
                 } else if ($task) {
-                    $this->logger->error("Producer '" . get_class($producer) . "' produced a non-Task object.  This is an error and I am removing this producer from the daemon.");
+                    $this->logger->error("Producer '" . get_class($producer) . "' produced a " .
+                        "non-Task object.  This is an error and I am removing this producer from the daemon.");
                     $this->removeProducer($producer);
                 }
             }

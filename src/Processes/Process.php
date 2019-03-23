@@ -10,24 +10,25 @@ class Process
      * @var EventDispather
      */
     protected $dispatcher;
-
     /**
      * @var Task
      */
     protected $task;
-
+    /**
+     * Producer responsible for producing $task
+     * @var Producer|null
+     */
+    protected $producer;
     /**
      * @var float
      */
     protected $startTime, $endTime, $maxRuntime = 0;
-
     /**
      * Process ID
      *
      * @var int
      */
     protected $pid;
-
     /**
      * Exit status
      *
@@ -35,7 +36,8 @@ class Process
      */
     protected $exitStatus;
 
-    public function __construct(Task $task, EventDispatcher $dispatcher, int $maxRuntime = 0) {
+    public function __construct(Task $task, EventDispatcher $dispatcher, int $maxRuntime = 0)
+    {
         $this->task = $task;
         $this->dispatcher = $dispatcher;
         $this->maxRuntime = $maxRuntime;
@@ -48,7 +50,8 @@ class Process
      * @throws RuntimeException
      * @return void
      */
-    public function fork() {
+    public function fork()
+    {
         $this->setStartTime();
         $this->task->init();
         if (($pid = \pcntl_fork()) > 0) { // in parent
@@ -67,7 +70,8 @@ class Process
      *
      * @return void
      */
-    public function reap() {
+    public function reap()
+    {
         // reap task process if zombied
         if (($r = \pcntl_waitpid($this->pid, $status, WNOHANG)) > 0) {
             $this->exitStatus = \pcntl_wexitstatus($status);
@@ -90,7 +94,8 @@ class Process
      *
      * @return $this
      */
-    public function setMaxRuntime(int $runtime) {
+    public function setMaxRuntime(int $runtime)
+    {
         $this->maxRuntime = $runtime;
         return $this;
     }
@@ -100,8 +105,32 @@ class Process
      *
      * @return Task
      */
-    public function getTask() {
+    public function getTask()
+    {
         return $this->task;
+    }
+
+    /**
+     * Get Producer
+     *
+     * @return Producer|null
+     */
+    public function getProducer()
+    {
+        return $this->producer;
+    }
+
+    /**
+     * Set Producer
+     *
+     * @param Producer $producer
+     *
+     * @return $this
+     */
+    public function setProducer(Producer $producer)
+    {
+        $this->producer = $producer;
+        return $this;
     }
 
     /**
@@ -109,7 +138,8 @@ class Process
      *
      * @return int
      */
-    public function getPid() {
+    public function getPid()
+    {
         return $this->pid;
     }
 
@@ -118,7 +148,8 @@ class Process
      *
      * @return int
      */
-    public function getExitStatus() {
+    public function getExitStatus()
+    {
         return $this->exitStatus;
     }
 
@@ -129,7 +160,8 @@ class Process
      *
      * @return $this
      */
-    public function setStartTime($time = null) {
+    public function setStartTime($time = null)
+    {
         if ($time == null) $time = \microtime(true);
         $this->startTime = $time;
         return $this;
@@ -140,7 +172,8 @@ class Process
      *
      * @return float
      */
-    public function getStartTime() {
+    public function getStartTime()
+    {
         return $this->startTime;
     }
 
@@ -151,7 +184,8 @@ class Process
      *
      * @return $this
      */
-    public function setEndTime($time = null) {
+    public function setEndTime($time = null)
+    {
         if ($time == null) $time = \microtime(true);
         $this->endTime = $time;
         return $this;
@@ -162,7 +196,8 @@ class Process
      *
      * @return float
      */
-    public function getEndTime() {
+    public function getEndTime()
+    {
         return $this->endTime;
     }
 
@@ -171,7 +206,8 @@ class Process
      *
      * @return float
      */
-    public function runtime() {
+    public function runtime()
+    {
         return sprintf('%.5f', ($this->endTime-$this->startTime));
     }
 
@@ -180,7 +216,8 @@ class Process
      *
      * @return int
      */
-    public static function daemonize() {
+    public static function daemonize()
+    {
         $pid = \pcntl_fork();
         if ($pid == -1) {
             throw new \RuntimeException("Failed to pcntl_fork()!");
