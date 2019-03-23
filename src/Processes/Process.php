@@ -1,6 +1,7 @@
 <?php
 namespace SeanKndy\Daemon\Processes;
 
+use SeanKndy\Daemon\Tasks\Producer;
 use SeanKndy\Daemon\Tasks\Task;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 
