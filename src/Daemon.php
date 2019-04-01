@@ -278,6 +278,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
         // iterate through processes sending sigint
         foreach ($this->processes as $pid => $process) {
+            $this->logger->info("Sending SIGINT to child with PID $pid");
             $process->sendSignal(SIGINT);
         }
 
