@@ -1,4 +1,4 @@
-<?php
+<?php declare(ticks=1);
 namespace SeanKndy\Daemon;
 
 use Symfony\Component\EventDispatcher\EventDispatcher;
@@ -107,7 +107,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
         $this->daemonize = true;
         $this->quietTime = $quietTime;
 
-        $this->logger = $logger == null ? new NullLogger : $logger;
+        $this->logger = $logger === null ? new NullLogger() : $logger;
         $this->producers = new \SplObjectStorage();
         $this->signals = new SignalsHandler();
 
@@ -192,6 +192,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 \fwrite($fp, $this->pid);
                 \fclose($fp);
             }
+        } else {
+            $this->pid = \getmypid();
+            $this->logger->notice("Started daemon with PID " . $this->pid);
         }
 
         $this->loop();
@@ -399,5 +402,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     public function removeSignal(int $signal, callable $listener)
     {
         $this->signals->remove($signal, $listener);
+
+        if ($this->signals->count($signal) == 0) {
+            \pcntl_signal($signal, \SIG_DFL);
+        }
     }
 }
