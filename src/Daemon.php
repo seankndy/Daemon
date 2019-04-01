@@ -198,6 +198,16 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     }
 
     /**
+     * Stop daemon
+     *
+     * @return void
+     */
+    public function stop()
+    {
+        $this->runLoop = false;
+    }
+
+    /**
      * Register task producer
      *
      * @param Tasks\Producer $producer
@@ -261,6 +271,11 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
             $this->dispatcher->dispatch(DaemonEvent::LOOP_ITERATION, new DaemonEvent($this));
             usleep($this->quietTime);
+        }
+
+        // iterate through processes sending sigint
+        foreach ($this->processes as $pid => $process) {
+            $process->sendSignal(SIGINT);
         }
 
         $this->dispatcher->dispatch(DaemonEvent::STOP, new DaemonEvent($this));

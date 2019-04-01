@@ -67,6 +67,18 @@ class Process
     }
 
     /**
+     * Send signal to the process
+     *
+     * @var int $signal
+     *
+     * @return bool
+     */
+    public function sendSignal(int $signo)
+    {
+        return \posix_kill($this->pid, int $signo);
+    }
+
+    /**
      * Reap process if we can
      *
      * @return void
@@ -84,7 +96,7 @@ class Process
         } else {
             // force kill if this process is over max runtime
             if ($this->maxRuntime && (microtime(true) - $this->startTime) >= $this->maxRuntime) {
-                \posix_kill($this->pid, SIGKILL);
+                $this->sendSignal(SIGKILL);
                 throw new Exceptions\RuntimeExceeded("Process with PID {$this->pid} has exceeded runtime, SIGKILL sent to process.");
             }
         }
