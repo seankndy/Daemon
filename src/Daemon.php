@@ -19,76 +19,70 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      * @var array
      */
     protected $processes;
-
     /**
      * Queue for tasks not yet running
      *
      * @var \SplQueue
      */
     protected $processQueue;
-
     /**
      * Maximum number of tasks to run at once
      *
      * @var int
      */
     protected $maxProcesses;
-
     /**
      * EventDispatcher
      *
      * @var EventDispatcher
      */
     protected $dispatcher;
-
     /**
      * PID of daemon process
      *
      * @var int
      */
     protected $pid;
-
     /**
      * PID filename
      *
      * @var string
      */
     protected $pidFile;
-
     /**
      * Should main loop run
      *
      * @var bool
      */
     protected $runLoop;
-
     /**
      * Time to wait between loop iterations (microsec)
      *
      * @var int
      */
     protected $quietTime;
-
     /**
      * Max runtime of a child process (0 for no limit)
      *
      * @var int
      */
     protected $childTimeout = 0;
-
     /**
      * Daemonize to background or not
      *
      * @var bool
      */
     protected $daemonize;
-
     /**
      * Task Producers
      *
      * @var array
      */
     protected $producers;
+    /**
+     * @var SignalsHandler
+     */
+    protected $signals;
 
     /**
      * Constructor
@@ -99,7 +93,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function __construct($maxProcesses = 100, $quietTime = 1000000, $childTimeout = 30, LoggerInterface $logger = null) {
+    public function __construct($maxProcesses = 100, $quietTime = 1000000, $childTimeout = 30,
+        LoggerInterface $logger = null)
+    {
         $this->processQueue = new \SplQueue();
         $this->processes = [];
         $this->maxProcesses = $maxProcesses;
@@ -113,6 +109,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
         $this->logger = $logger == null ? new NullLogger : $logger;
         $this->producers = new \SplObjectStorage();
+        $this->signals = new SignalsHandler();
 
         // setup event dispatcher
         $this->dispatcher = new EventDispatcher();
@@ -126,7 +123,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return array
      */
-    public static function getSubscribedEvents() {
+    public static function getSubscribedEvents()
+    {
         return [
             Processes\Event::START => 'onProcessStart',
             Processes\Event::EXIT => 'onProcessExit'
@@ -139,7 +137,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    protected function fillProcessQueue() {
+    protected function fillProcessQueue()
+    {
         $maxFill = $this->maxProcesses - count($this->processes);
 
         for ($n = 0; $n < $maxFill; ) {
@@ -173,7 +172,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    public function start() {
+    public function start()
+    {
         $this->dispatcher->dispatch(DaemonEvent::START, new DaemonEvent($this));
 
         if ($this->daemonize) {
@@ -194,13 +194,6 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
             }
         }
 
-        /* example of signal handling
-        \pcntl_signal(SIGTERM, array($this, "sigHandler"));
-        \pcntl_signal(SIGHUP,  array($this, "sigHandler"));
-        \pcntl_signal(SIGINT, array($this, "sigHandler"));
-        \pcntl_signal(SIGUSR1, array($this, "sigHandler"));
-        */
-
         $this->loop();
     }
 
@@ -211,7 +204,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function addProducer(Tasks\Producer $producer) {
+    public function addProducer(Tasks\Producer $producer)
+    {
         if ($producer instanceof EventSubscriberInterface) {
             $this->dispatcher->addSubscriber($producer);
         }
@@ -225,7 +219,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function removeProducer(Tasks\Producer $producer) {
+    public function removeProducer(Tasks\Producer $producer)
+    {
         if ($producer instanceof EventSubscriberInterface) {
             $this->dispatcher->removeSubscriber($producer);
         }
@@ -237,7 +232,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    protected function loop() {
+    protected function loop()
+    {
         while ($this->runLoop) {
             // fill up on tasks if we can
             $this->fillProcessQueue();
@@ -277,7 +273,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    public function onProcessStart(Processes\Event $event) {
+    public function onProcessStart(Processes\Event $event)
+    {
         $p = $event->getProcess();
         $this->logger->notice("Spawned child with PID " . $p->getPid());
         $this->processes[$p->getPid()] = $p;
@@ -290,14 +287,11 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    public function onProcessExit(Processes\Event $event) {
+    public function onProcessExit(Processes\Event $event)
+    {
         $p = $event->getProcess();
         $this->logger->notice("Child with PID " . $p->getPid() . " exited with status " . $p->getExitStatus() . ", runtime was " . sprintf("%.3f", $p->runtime()) . "sec");
         unset($this->processes[$p->getPid()]);
-    }
-
-    public function sigHandler($signo) {
-        ; // implement your own signal handling
     }
 
     /**
@@ -305,7 +299,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return EventDispather
      */
-    public function getDispatcher() {
+    public function getDispatcher()
+    {
         return $this->dispatcher;
     }
 
@@ -319,7 +314,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return void
      */
-    public function addListener(string $eventName, $listener, int $prio = 0) {
+    public function addListener(string $eventName, $listener, int $prio = 0)
+    {
         $this->dispatcher->addListener($eventName, $listener, $prio);
     }
 
@@ -328,7 +324,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return LoggerInterface
      */
-    public function getLogger() {
+    public function getLogger()
+    {
         return $this->logger;
     }
 
@@ -339,7 +336,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function setDaemonize($d) {
+    public function setDaemonize($d)
+    {
         $this->daemonize = $d;
         return $this;
     }
@@ -351,8 +349,40 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return $this
      */
-    public function setPidFile($file) {
+    public function setPidFile($file)
+    {
         $this->pidFile = $file;
         return $this;
+    }
+
+    /**
+     * Add signal handler
+     *
+     * @var int $signal  Signo
+     * @var callable $listener Listener callable
+     *
+     * @return void
+     */
+    public function addSignal(int $signal, callable $listener)
+    {
+        $first = $this->signals->count($signal) == 0;
+        $this->signals->add($signal, $listener);
+
+        if ($first) {
+            \pcntl_signal($signal, array($this->signals, 'call'));
+        }
+    }
+
+    /**
+     * Remove signal handler
+     *
+     * @var int $signal  Signo
+     * @var callable $listener Listener callable
+     *
+     * @return void
+     */
+    public function removeSignal(int $signal, callable $listener)
+    {
+        $this->signals->remove($signal, $listener);
     }
 }
