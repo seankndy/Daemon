@@ -75,7 +75,7 @@ class Process
      */
     public function sendSignal(int $signo)
     {
-        return \posix_kill($this->pid, int $signo);
+        return \posix_kill($this->pid, $signo);
     }
 
     /**
