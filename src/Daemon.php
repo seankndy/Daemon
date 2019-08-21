@@ -76,7 +76,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     /**
      * Task Producers
      *
-     * @var array
+     * @var Tasks\Producer[]
      */
     protected $producers;
     /**
@@ -91,7 +91,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      * @param int $quietTime Length of time to pause between loop iterations
      * @param LoggerInterface $logger Logger for events
      *
-     * @return $this
+     * @return self
      */
     public function __construct($maxProcesses = 100, $quietTime = 1000000, $childTimeout = 30,
         LoggerInterface $logger = null)
@@ -213,16 +213,34 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     /**
      * Register task producer
      *
-     * @param Tasks\Producer $producer
+     * @param Tasks\Producer|callable $producer
      *
-     * @return $this
+     * @return self
      */
-    public function addProducer(Tasks\Producer $producer)
+    public function addProducer($producer)
     {
+        if (!($producer instanceof Tasks\Producer) && $producer instanceof \Closure) {
+            $func = $producer;
+            // wrap callable func into class implementing Tasks\Producer
+            $producer = new class($func) implements Tasks\Producer {
+                private $callable;
+                public function __construct($callable) {
+                    $this->callable = $callable;
+                }
+                public function run() : int {
+                    $callable = $this->callable;
+                    return $callable();
+                }
+                public function init() : void {}
+                public function finish(int $status) : void {}
+            };
+        }
         if ($producer instanceof EventSubscriberInterface) {
             $this->dispatcher->addSubscriber($producer);
         }
         $this->producers->attach($producer);
+
+        return $this;
     }
 
     /**
@@ -230,7 +248,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @param Tasks\Producer $producer
      *
-     * @return $this
+     * @return self
      */
     public function removeProducer(Tasks\Producer $producer)
     {
@@ -238,6 +256,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
             $this->dispatcher->removeSubscriber($producer);
         }
         $this->producers->detach($producer);
+
+        return $this;
     }
 
     /**
