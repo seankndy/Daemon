@@ -144,7 +144,27 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
         for ($n = 0; $n < $maxFill; ) {
             $empty = true;
             foreach ($this->producers as $producer) {
-                if (($task = $producer->produce()) instanceof Tasks\Task) {
+                $task = $producer->produce();
+
+                // if $task not a Tasks\Task, but is a callable, wrap the callable
+                // in a Tasks\Task class.
+                if (!($task instanceof Tasks\Task) && \is_callable($task)) {
+                    $func = $task;
+                    $task = new class($func) implements Tasks\Task {
+                        private $callable;
+                        public function __construct($callable) {
+                            $this->callable = $callable;
+                        }
+                        public function run() : int {
+                            $callable = $this->callable;
+                            return $callable();
+                        }
+                        public function init() : void {}
+                        public function finish(int $status) : void {}
+                    };
+                }
+
+                if ($task instanceof Tasks\Task) {
                     $empty = false;
 
                     $process = (new Processes\Process(
@@ -219,7 +239,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     public function addProducer($producer)
     {
-        if (!($producer instanceof Tasks\Producer) && $producer instanceof \Closure) {
+        if (!($producer instanceof Tasks\Producer) && \is_callable($producer)) {
             $func = $producer;
             // wrap callable func into class implementing Tasks\Producer
             $producer = new class($func) implements Tasks\Producer {
@@ -227,12 +247,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 public function __construct($callable) {
                     $this->callable = $callable;
                 }
-                public function run() : int {
+                public function produce() {
                     $callable = $this->callable;
                     return $callable();
                 }
-                public function init() : void {}
-                public function finish(int $status) : void {}
             };
         }
         if ($producer instanceof EventSubscriberInterface) {

@@ -5,7 +5,7 @@ interface Producer {
     /**
      * Produce Task to run, or null if none
      *
-     * @return Task
+     * @return Task|callable
      */
     public function produce();
 }
