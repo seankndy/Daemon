@@ -199,6 +199,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
         if ($this->daemonize) {
             try {
                 $this->pid = Processes\Process::daemonize();
+                $this->dispatcher->dispatch(DaemonEvent::DAEMONIZED, new DaemonEvent($this));
             } catch (\RuntimeException $e) {
                 $this->logger->error($e->getMessage());
             }

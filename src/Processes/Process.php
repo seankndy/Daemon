@@ -244,10 +244,11 @@ class Process
             \fclose(STDERR);
             \chdir('/');
 
+            /*
             $stdIn = \fopen('/dev/null', 'r');
             $stdOut = \fopen('/dev/null', 'w');
             $stdErr = \fopen('php://stdout', 'w');
-
+            */
             return \getmypid();
         }
     }
