@@ -239,18 +239,11 @@ class Process
         } else { // child
             $sid = \posix_setsid();
 
-            /*
             \fclose(STDIN);
             \fclose(STDOUT);
             \fclose(STDERR);
-            */
             \chdir('/');
 
-            /*
-            $stdIn = \fopen('/dev/null', 'r');
-            $stdOut = \fopen('/dev/null', 'w');
-            $stdErr = \fopen('php://stdout', 'w');
-            */
             return \getmypid();
         }
     }
