@@ -239,9 +239,11 @@ class Process
         } else { // child
             $sid = \posix_setsid();
 
+            /*
             \fclose(STDIN);
             \fclose(STDOUT);
             \fclose(STDERR);
+            */
             \chdir('/');
 
             /*
