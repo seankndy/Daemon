@@ -4,6 +4,7 @@ namespace SeanKndy\Daemon;
 class SignalsHandler
 {
     private $signals = array();
+
     public function add($signal, $listener)
     {
         if (!isset($this->signals[$signal])) {
@@ -14,6 +15,7 @@ class SignalsHandler
         }
         $this->signals[$signal][] = $listener;
     }
+
     public function remove($signal, $listener)
     {
         if (!isset($this->signals[$signal])) {
@@ -25,6 +27,7 @@ class SignalsHandler
             unset($this->signals[$signal]);
         }
     }
+
     public function call($signal)
     {
         if (!isset($this->signals[$signal])) {
@@ -34,6 +37,7 @@ class SignalsHandler
             \call_user_func($listener, $signal);
         }
     }
+
     public function count($signal)
     {
         if (!isset($this->signals[$signal])) {
@@ -41,6 +45,7 @@ class SignalsHandler
         }
         return \count($this->signals[$signal]);
     }
+
     public function isEmpty()
     {
         return !$this->signals;

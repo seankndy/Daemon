@@ -68,6 +68,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     protected $childTimeout = 0;
     /**
+     * Stop daemon when producers empty
+     */
+    protected $stopWhenEmpty = false;
+    /**
      * Daemonize to background or not
      *
      * @var bool
@@ -133,9 +137,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
     /**
      * Attempt to fill process queue from producers, distributing evenly
-     * among producers
+     * among producere
+     * Returns false is producers all empty
      *
-     * @return void
+     * @return boolean
      */
     protected function fillProcessQueue()
     {
@@ -182,9 +187,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 }
             }
             if ($empty) {
-                break;
+                return false;
             }
         }
+        return true;
     }
 
     /**
@@ -288,7 +294,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     {
         while ($this->runLoop) {
             // fill up on tasks if we can
-            $this->fillProcessQueue();
+            if (!$this->fillProcessQueue() && $this->stopWhenEmpty) {
+                $this->stop();
+                break;
+            }
 
             // look for queued work, execute it
             if ($this->processQueue->count() > 0) {
@@ -397,6 +406,19 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     public function setDaemonize($d)
     {
         $this->daemonize = $d;
+        return $this;
+    }
+
+    /**
+     * Set stop when empty flag
+     *
+     * @param boolean $s
+     *
+     * @return $this
+     */
+    public function setStopWhenEmpty($s)
+    {
+        $this->stopWhenEmpty = $s;
         return $this;
     }
 
