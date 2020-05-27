@@ -17,14 +17,13 @@ interface Task
      *
      * @return int
      */
-     public function run() : int;
+    public function run() : int;
 
-     /**
-      * Cleanup (main thread)
-      *
-      * @var int $status Exit status of child thread
-      *
-      * @return void
-      */
-     public function finish(int $status) : void;
+    /**
+     * Cleanup (main thread)
+     *
+     * @var int $status Exit status of child thread
+     * @return void
+     */
+    public function finish(int $status) : void;
 }
