@@ -11,8 +11,11 @@ if there is no task to perform otherwise a `SeanKndy\Daemon\Tasks\Task` or `call
 has 3 methods:
 
 `init()` - Called from parent process just before child is forked.
+
 `run()` - Called from within forked process (child work)
+
 `finish(int $status)` - Called from parent when process exits
+
 
 So if you need to perform any initialization or teardown of as children are spawned/exiting, then
 you'll want to make your own task classes implementing `SeanKndy\Daemon\Tasks\Task` rather than using
