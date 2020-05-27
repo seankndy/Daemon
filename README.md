@@ -26,7 +26,8 @@ There are various events you can listen for (use `SeanKndy\Daemon\Daemon::addLis
 `SeanKndy\Daemon\Processes\Event::ITERATION` - Every main loop iteration this is fired for each running process
 
 
-```
+```php
+<?php
 use SeanKndy\Daemon\Daemon;
 use SeanKndy\Daemon\Processes\Event as ProcessEvent;
 
