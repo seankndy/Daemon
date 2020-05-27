@@ -42,7 +42,6 @@ class Process
         $this->task = $task;
         $this->dispatcher = $dispatcher;
         $this->maxRuntime = $maxRuntime;
-        return $this;
     }
 
     /**
@@ -105,7 +104,7 @@ class Process
     /**
      * Set a max runtime of process
      *
-     * @return $this
+     * @return self
      */
     public function setMaxRuntime(int $runtime)
     {
@@ -138,7 +137,7 @@ class Process
      *
      * @param Producer $producer
      *
-     * @return $this
+     * @return self
      */
     public function setProducer(Producer $producer)
     {
@@ -169,9 +168,8 @@ class Process
     /**
      * Set start time
      *
-     * @param float Microtime
-     *
-     * @return $this
+     * @param float $time
+     * @return self
      */
     public function setStartTime($time = null)
     {
@@ -193,9 +191,8 @@ class Process
     /**
      * Set end time
      *
-     * @param float Microtime
-     *
-     * @return $this
+     * @param float $time
+     * @return self
      */
     public function setEndTime($time = null)
     {

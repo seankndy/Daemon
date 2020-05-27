@@ -1,7 +1,8 @@
 <?php
 namespace SeanKndy\Daemon\IPC;
 
-class Socket implements Messenger {
+class Socket implements Messenger
+{
     const PARENT = 0;
     const CHILD = 1;
 
@@ -10,26 +11,19 @@ class Socket implements Messenger {
      * @var int
      */
     protected $ppid;
-
     /**
      * @var array
      */
     protected $sockets;
 
 
-    /**
-     * Constructor, always called from main process thread
-     *
-     * @return $this
-     */
-    public function __construct() {
+    public function __construct()
+    {
         $this->sockets = [];
         $this->ppid = \getmypid();
 
         $factory = new \Socket\Raw\Factory();
         $this->sockets = $factory->createPair(AF_UNIX, SOCK_STREAM, 0);
-
-        return $this;
     }
 
     /**
@@ -37,10 +31,10 @@ class Socket implements Messenger {
      * Write data to appropriate socket
      *
      * @param string $message Data to write to socket
-     *
      * @return boolean
      */
-    public function send(string $message) : bool {
+    public function send(string $message) : bool
+    {
         // close opposite FD
         $this->sockets[$this->isChild() ? self::PARENT : self::CHILD]->close();
 
@@ -54,7 +48,8 @@ class Socket implements Messenger {
      *
      * @return string
      */
-    public function receive() : string {
+    public function receive() : string
+    {
         $who = $this->isChild() ? self::CHILD : self::PARENT;
         $data = '';
         while ($this->hasMessage() && $buf = $this->sockets[$who]->recv(4096, MSG_DONTWAIT)) {
@@ -68,7 +63,8 @@ class Socket implements Messenger {
      *
      * @return boolean
      */
-    public function hasMessage() : bool {
+    public function hasMessage() : bool
+    {
         $who = $this->isChild() ? self::CHILD : self::PARENT;
         return $this->sockets[$who]->selectRead();
     }
@@ -78,7 +74,8 @@ class Socket implements Messenger {
      *
      * @return void
      */
-    public function close() {
+    public function close()
+    {
         $who = $this->isChild() ? self::CHILD : self::PARENT;
         $this->sockets[$who]->close();
     }
@@ -88,7 +85,8 @@ class Socket implements Messenger {
      *
      * @return boolean
      */
-    private function isChild() {
+    private function isChild()
+    {
         return (\getmypid() != $this->ppid);
     }
 }

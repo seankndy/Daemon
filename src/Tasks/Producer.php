@@ -1,7 +1,8 @@
 <?php
 namespace SeanKndy\Daemon\Tasks;
 
-interface Producer {
+interface Producer
+{
     /**
      * Produce Task to run, or null if none
      *

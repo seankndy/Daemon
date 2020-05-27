@@ -1,7 +1,8 @@
 <?php
 namespace SeanKndy\Daemon\Processes;
 
-class Event extends \Symfony\Component\EventDispatcher\Event {
+class Event extends \Symfony\Component\EventDispatcher\Event
+{
      const START = 'process.start';
      const EXIT = 'process.exit';
      const ITERATION = 'process.iteration';
@@ -13,7 +14,8 @@ class Event extends \Symfony\Component\EventDispatcher\Event {
       */
      protected $process;
 
-     public function __construct(Process $p) {
+     public function __construct(Process $p)
+     {
          $this->process = $p;
      }
 
@@ -22,7 +24,8 @@ class Event extends \Symfony\Component\EventDispatcher\Event {
       *
       * @return Process
       */
-     public function getProcess() {
+     public function getProcess()
+     {
          return $this->process;
      }
 }

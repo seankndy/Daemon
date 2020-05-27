@@ -3,7 +3,8 @@ namespace SeanKndy\Daemon\Tasks;
 
 use SeanKndy\Daemon\Daemon;
 
-interface Task {
+interface Task
+{
     /**
      * Initialize task (main thread)
      *

@@ -1,12 +1,12 @@
 <?php
 namespace SeanKndy\Daemon\IPC;
 
-interface Messenger {
+interface Messenger
+{
     /**
      * Send message
      *
      * @param string $message Message/data to send
-     *
      * @return boolean
      */
     public function send(string $message) : bool;

@@ -97,8 +97,8 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @return self
      */
-    public function __construct($maxProcesses = 100, $quietTime = 1000000, $childTimeout = 30,
-        LoggerInterface $logger = null)
+    public function __construct(int $maxProcesses = 100, int $quietTime = 1000000,
+        int $childTimeout = 30, LoggerInterface $logger = null)
     {
         $this->processQueue = new \SplQueue();
         $this->processes = [];
@@ -118,8 +118,6 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
         // setup event dispatcher
         $this->dispatcher = new EventDispatcher();
         $this->dispatcher->addSubscriber($this);
-
-        return $this;
     }
 
     /**
@@ -400,10 +398,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      * Set daemonize flag
      *
      * @param boolean $d
-     *
-     * @return $this
+     * @return self
      */
-    public function setDaemonize($d)
+    public function setDaemonize(bool $d)
     {
         $this->daemonize = $d;
         return $this;
@@ -413,10 +410,9 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      * Set stop when empty flag
      *
      * @param boolean $s
-     *
-     * @return $this
+     * @return self
      */
-    public function setStopWhenEmpty($s)
+    public function setStopWhenEmpty(bool $s)
     {
         $this->stopWhenEmpty = $s;
         return $this;
@@ -426,8 +422,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      * Set PID file
      *
      * @param string $file File name
-     *
-     * @return $this
+     * @return self
      */
     public function setPidFile($file)
     {
@@ -440,7 +435,6 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      *
      * @var int $signal  Signo
      * @var callable $listener Listener callable
-     *
      * @return void
      */
     public function addSignal(int $signal, callable $listener)
