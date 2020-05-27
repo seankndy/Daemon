@@ -19,6 +19,7 @@ has 3 methods:
 
 So if you need to perform any initialization or teardown of as children are spawned/exiting, then
 you'll want to make your own task classes implementing `SeanKndy\Daemon\Tasks\Task` rather than using
+a simple closure.
 
 
 There are various events you can listen for (use `SeanKndy\Daemon\Daemon::addListener()`):
