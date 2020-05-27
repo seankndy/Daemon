@@ -1,7 +1,9 @@
 ## Installing
-```composer require seankndy/daemon```
+```bash
+$ composer require seankndy/daemon
+```
 
-## Basic usage
+## Usage overview
 On each iteration of the main loop, _producers_ are called which should provide a _task_ to fork/run.
 
 Producers can be callables or objects that implement `SeanKndy\Daemon\Tasks\Producer`.  Producers should return `null`
@@ -10,12 +12,19 @@ if there is no task to perform otherwise a `SeanKndy\Daemon\Tasks\Task` or `call
 There are various events you can listen for (use `SeanKndy\Daemon\Daemon::addListener()`):
 
 `SeanKndy\Daemon\DaemonEvent::START` - When daemon starts
+
 `SeanKndy\Daemon\DaemonEvent::STOP` - When daemon stops
+
 `SeanKndy\Daemon\DaemonEvent::DAEMONIZED` - When daemonized (backgrounded)
+
 `SeanKndy\Daemon\DaemonEvent::LOOP_ITERATION` - Called at the end of each loop iteration
+
 `SeanKndy\Daemon\Processes\Event::START` - New process started
+
 `SeanKndy\Daemon\Processes\Event::EXIT` - New process exited
+
 `SeanKndy\Daemon\Processes\Event::ITERATION` - Every main loop iteration this is fired for each running process
+
 
 ```
 use SeanKndy\Daemon\Daemon;
