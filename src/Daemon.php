@@ -292,10 +292,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
     {
         while ($this->runLoop) {
             // fill up on tasks if we can
-            if (!$this->fillProcessQueue() && $this->stopWhenEmpty) {
-                $this->stop();
-                break;
-            }
+            $this->fillProcessQueue();
 
             // look for queued work, execute it
             if ($this->processQueue->count() > 0) {
@@ -303,6 +300,10 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                     $process = $this->processQueue->dequeue();
                     $process->fork();
                 }
+            } else if (count($this->processes) == 0 && $this->stopWhenEmpty) {
+                // nothing left to do.  stop if stopWhenEmpty is true
+                $this->stop();
+                break;
             }
 
             // iterate through processes dispatching to listeners
