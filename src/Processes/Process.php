@@ -3,12 +3,12 @@ namespace SeanKndy\Daemon\Processes;
 
 use SeanKndy\Daemon\Tasks\Producer;
 use SeanKndy\Daemon\Tasks\Task;
-use Symfony\Component\EventDispatcher\EventDispatcher;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 class Process
 {
     /**
-     * @var EventDispather
+     * @var EventDispatcherInterface
      */
     protected $dispatcher;
     /**
@@ -37,7 +37,7 @@ class Process
      */
     protected $exitStatus;
 
-    public function __construct(Task $task, EventDispatcher $dispatcher, int $maxRuntime = 0)
+    public function __construct(Task $task, EventDispatcherInterface $dispatcher, int $maxRuntime = 0)
     {
         $this->task = $task;
         $this->dispatcher = $dispatcher;
@@ -56,7 +56,7 @@ class Process
         $this->task->init();
         if (($pid = \pcntl_fork()) > 0) { // in parent
             $this->pid = $pid;
-            $this->dispatcher->dispatch(Event::START, new Event($this));
+            $this->dispatcher->dispatch(new Event($this), Event::START);
         } else if ($pid == 0) { // child
             $retval = $this->task->run();
             exit($retval);
@@ -89,9 +89,9 @@ class Process
             $this->exitStatus = \pcntl_wexitstatus($status);
             $this->setEndTime();
             $this->task->finish($this->exitStatus);
-            $this->dispatcher->dispatch(Event::EXIT, new Event($this));
+            $this->dispatcher->dispatch(new Event($this), Event::EXIT);
         } else if ($r < 0) {
-            throw new \RuntimeException("pcntl_waitpid() returned error value for PID $pid");
+            throw new \RuntimeException("pcntl_waitpid() returned error value for PID {$this->pid}");
         } else {
             // force kill if this process is over max runtime
             if ($this->maxRuntime && (microtime(true) - $this->startTime) >= $this->maxRuntime) {

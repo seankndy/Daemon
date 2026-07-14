@@ -197,12 +197,12 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
      */
     public function start()
     {
-        $this->dispatcher->dispatch(DaemonEvent::START, new DaemonEvent($this));
+        $this->dispatcher->dispatch(new DaemonEvent($this), DaemonEvent::START);
 
         if ($this->daemonize) {
             try {
                 $this->pid = Processes\Process::daemonize();
-                $this->dispatcher->dispatch(DaemonEvent::DAEMONIZED, new DaemonEvent($this));
+                $this->dispatcher->dispatch(new DaemonEvent($this), DaemonEvent::DAEMONIZED);
             } catch (\RuntimeException $e) {
                 $this->logger->error($e->getMessage());
             }
@@ -307,7 +307,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
 
             // iterate through processes dispatching to listeners
             foreach ($this->processes as $pid => $process) {
-                $this->dispatcher->dispatch(Processes\Event::ITERATION, new Processes\Event($process));
+                $this->dispatcher->dispatch(new Processes\Event($process), Processes\Event::ITERATION);
 
                 try {
                     $process->reap();
@@ -318,7 +318,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
                 }
             }
 
-            $this->dispatcher->dispatch(DaemonEvent::LOOP_ITERATION, new DaemonEvent($this));
+            $this->dispatcher->dispatch(new DaemonEvent($this), DaemonEvent::LOOP_ITERATION);
             usleep($this->quietTime);
         }
 
@@ -328,7 +328,7 @@ class Daemon implements EventSubscriberInterface, LoggerAwareInterface
             $process->sendSignal(SIGINT);
         }
 
-        $this->dispatcher->dispatch(DaemonEvent::STOP, new DaemonEvent($this));
+        $this->dispatcher->dispatch(new DaemonEvent($this), DaemonEvent::STOP);
     }
 
     /**
